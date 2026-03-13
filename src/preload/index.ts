@@ -50,7 +50,9 @@ const api = {
   },
 
   /** Load persisted terminal sessions from disk. */
-  getSessions: (): Promise<Array<{ id: string; projectId: string; name: string; isRunning: boolean }>> => {
+  getSessions: (): Promise<
+    Array<{ id: string; projectId: string; name: string; isRunning: boolean }>
+  > => {
     return ipcRenderer.invoke(IPC.STORE_GET_SESSIONS)
   },
 

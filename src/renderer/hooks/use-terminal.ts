@@ -151,17 +151,20 @@ export function useTerminalManager() {
   }, [])
 
   /** Restart: kill the old PTY, clear the terminal, and spawn a new PTY in the same cwd. */
-  const restartTerminal = useCallback((sessionId: string, cwd: string) => {
-    const entry = terminalsRef.current.get(sessionId)
-    if (!entry) {
-      // Restored session with no xterm instance yet — create one from scratch.
-      createTerminal(sessionId, cwd)
-      return
-    }
-    window.shellDeck.killTerminal(sessionId)
-    entry.terminal.clear()
-    window.shellDeck.spawnTerminal(sessionId, cwd, entry.terminal.cols, entry.terminal.rows)
-  }, [createTerminal])
+  const restartTerminal = useCallback(
+    (sessionId: string, cwd: string) => {
+      const entry = terminalsRef.current.get(sessionId)
+      if (!entry) {
+        // Restored session with no xterm instance yet — create one from scratch.
+        createTerminal(sessionId, cwd)
+        return
+      }
+      window.shellDeck.killTerminal(sessionId)
+      entry.terminal.clear()
+      window.shellDeck.spawnTerminal(sessionId, cwd, entry.terminal.cols, entry.terminal.rows)
+    },
+    [createTerminal]
+  )
 
   /** Search forward in the terminal scrollback. Returns true if a match was found. */
   const searchTerminal = useCallback((sessionId: string, query: string): boolean => {

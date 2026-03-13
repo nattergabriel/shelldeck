@@ -6,10 +6,11 @@
 import { app } from 'electron'
 import { join } from 'path'
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
-import { Project } from '../shared/types'
+import { Project, TerminalSession } from '../shared/types'
 
 const DATA_DIR = join(app.getPath('userData'))
 const PROJECTS_FILE = join(DATA_DIR, 'projects.json')
+const SESSIONS_FILE = join(DATA_DIR, 'sessions.json')
 const SETTINGS_FILE = join(DATA_DIR, 'settings.json')
 
 function ensureDir(): void {
@@ -43,6 +44,17 @@ export function loadProjects(): Project[] {
 
 export function saveProjects(projects: Project[]): void {
   writeJson(PROJECTS_FILE, projects)
+}
+
+// --- Sessions ---
+
+export function loadSessions(): TerminalSession[] {
+  const data = readJson<unknown>(SESSIONS_FILE, [])
+  return Array.isArray(data) ? data : []
+}
+
+export function saveSessions(sessions: TerminalSession[]): void {
+  writeJson(SESSIONS_FILE, sessions)
 }
 
 // --- Settings (window state, sidebar width, etc.) ---

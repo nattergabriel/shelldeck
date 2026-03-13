@@ -23,6 +23,7 @@ interface TerminalEntry {
 export function useTerminalManager() {
   const terminalsRef = useRef(new Map<string, TerminalEntry>())
   const { markSessionDead } = useTerminalContext()
+  const pendingAttachRef = useRef(new Map<string, HTMLElement>())
 
   // Listen for PTY data and exit events from the main process.
   useEffect(() => {
@@ -90,6 +91,17 @@ export function useTerminalManager() {
 
     // Spawn the backend PTY (use default 80x24 until attached & fitted).
     window.shellDeck.spawnTerminal(sessionId, cwd, 80, 24)
+
+    // If a TerminalView already requested attachment before we existed, fulfill it now.
+    const pendingContainer = pendingAttachRef.current.get(sessionId)
+    if (pendingContainer) {
+      pendingAttachRef.current.delete(sessionId)
+      terminal.open(pendingContainer)
+      requestAnimationFrame(() => {
+        fitAddon.fit()
+        window.shellDeck.resizeTerminal(sessionId, terminal.cols, terminal.rows)
+      })
+    }
   }, [])
 
   /**
@@ -98,7 +110,11 @@ export function useTerminalManager() {
    */
   const attachTerminal = useCallback((sessionId: string, container: HTMLElement) => {
     const entry = terminalsRef.current.get(sessionId)
-    if (!entry) return
+    if (!entry) {
+      // No xterm instance yet (restored session). Queue for when createTerminal runs.
+      pendingAttachRef.current.set(sessionId, container)
+      return
+    }
 
     const { terminal, fitAddon } = entry
 
@@ -125,6 +141,7 @@ export function useTerminalManager() {
 
   /** Dispose an xterm.js instance and kill the backend PTY. */
   const destroyTerminal = useCallback((sessionId: string) => {
+    pendingAttachRef.current.delete(sessionId)
     const entry = terminalsRef.current.get(sessionId)
     if (entry) {
       entry.terminal.dispose()
@@ -136,11 +153,15 @@ export function useTerminalManager() {
   /** Restart: kill the old PTY, clear the terminal, and spawn a new PTY in the same cwd. */
   const restartTerminal = useCallback((sessionId: string, cwd: string) => {
     const entry = terminalsRef.current.get(sessionId)
-    if (!entry) return
+    if (!entry) {
+      // Restored session with no xterm instance yet — create one from scratch.
+      createTerminal(sessionId, cwd)
+      return
+    }
     window.shellDeck.killTerminal(sessionId)
     entry.terminal.clear()
     window.shellDeck.spawnTerminal(sessionId, cwd, entry.terminal.cols, entry.terminal.rows)
-  }, [])
+  }, [createTerminal])
 
   /** Search forward in the terminal scrollback. Returns true if a match was found. */
   const searchTerminal = useCallback((sessionId: string, query: string): boolean => {

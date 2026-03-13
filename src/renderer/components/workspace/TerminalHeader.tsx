@@ -8,7 +8,7 @@ import { useTerminalManager } from '@/hooks/use-terminal'
 import { TerminalSession } from '../../../shared/types'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { RotateCcw, Square } from 'lucide-react'
+import { RotateCcw } from 'lucide-react'
 
 interface TerminalHeaderProps {
   session: TerminalSession
@@ -17,16 +17,11 @@ interface TerminalHeaderProps {
 }
 
 export function TerminalHeader({ session, projectPath, terminalManager }: TerminalHeaderProps) {
-  const { removeSession, dispatch } = useTerminalContext()
+  const { dispatch } = useTerminalContext()
 
   const handleRestart = () => {
     dispatch({ type: 'SET_SESSION_RUNNING', sessionId: session.id, isRunning: true })
     terminalManager.restartTerminal(session.id, projectPath)
-  }
-
-  const handleKill = () => {
-    terminalManager.destroyTerminal(session.id)
-    removeSession(session.id)
   }
 
   return (
@@ -53,15 +48,6 @@ export function TerminalHeader({ session, projectPath, terminalManager }: Termin
         <Button variant="ghost" size="sm" className="gap-1.5 text-xs" onClick={handleRestart}>
           <RotateCcw className="h-3.5 w-3.5" />
           Restart
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-1.5 text-xs text-destructive hover:text-destructive"
-          onClick={handleKill}
-        >
-          <Square className="h-3.5 w-3.5" />
-          Kill
         </Button>
       </div>
     </div>

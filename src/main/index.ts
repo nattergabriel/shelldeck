@@ -13,7 +13,15 @@ import { join } from 'path'
 import { existsSync } from 'fs'
 import { PtyManager } from './pty-manager'
 import { SystemMonitor } from './system-monitor'
-import { loadProjects, saveProjects, loadSettings, saveSettings, AppSettings } from './store'
+import {
+  loadProjects,
+  saveProjects,
+  loadSessions,
+  saveSessions,
+  loadSettings,
+  saveSettings,
+  AppSettings
+} from './store'
 import { IPC } from '../shared/types'
 
 const ptyManager = new PtyManager()
@@ -105,6 +113,10 @@ function registerIpcHandlers(): void {
   // Project persistence.
   ipcMain.handle(IPC.STORE_GET_PROJECTS, () => loadProjects())
   ipcMain.on(IPC.STORE_SAVE_PROJECTS, (_event, { projects }) => saveProjects(projects))
+
+  // Session persistence.
+  ipcMain.handle(IPC.STORE_GET_SESSIONS, () => loadSessions())
+  ipcMain.on(IPC.STORE_SAVE_SESSIONS, (_event, { sessions }) => saveSessions(sessions))
 
   // Settings persistence (sidebar width, etc.).
   ipcMain.handle(IPC.STORE_GET_SETTINGS, () => loadSettings())

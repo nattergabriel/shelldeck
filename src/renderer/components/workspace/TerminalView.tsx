@@ -18,12 +18,11 @@ interface TerminalViewProps {
 
 export function TerminalView({ sessionId, isVisible, terminalManager }: TerminalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const attachedRef = useRef(false)
-
-  // Attach the xterm terminal to this container on first render.
+  // Attach the xterm terminal to this container on mount.
+  // For restored sessions the instance may not exist yet — attachTerminal queues
+  // the container and createTerminal fulfills it when the PTY is spawned.
   useEffect(() => {
-    if (!containerRef.current || attachedRef.current) return
-    attachedRef.current = true
+    if (!containerRef.current) return
     terminalManager.attachTerminal(sessionId, containerRef.current)
   }, [sessionId, terminalManager])
 

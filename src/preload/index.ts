@@ -49,6 +49,18 @@ const api = {
     ipcRenderer.send(IPC.STORE_SAVE_PROJECTS, { projects })
   },
 
+  /** Load persisted terminal sessions from disk. */
+  getSessions: (): Promise<Array<{ id: string; projectId: string; name: string; isRunning: boolean }>> => {
+    return ipcRenderer.invoke(IPC.STORE_GET_SESSIONS)
+  },
+
+  /** Save terminal sessions to disk. */
+  saveSessions: (
+    sessions: Array<{ id: string; projectId: string; name: string; isRunning: boolean }>
+  ) => {
+    ipcRenderer.send(IPC.STORE_SAVE_SESSIONS, { sessions })
+  },
+
   /** Check if a filesystem path exists. */
   pathExists: (path: string): Promise<boolean> => {
     return ipcRenderer.invoke(IPC.FS_PATH_EXISTS, { path })

@@ -45,6 +45,8 @@ export const IPC = {
   STORE_GET_SETTINGS: 'store:get-settings',
   STORE_SAVE_SETTINGS: 'store:save-settings',
   FS_PATH_EXISTS: 'fs:path-exists',
+  STORE_GET_SESSIONS: 'store:get-sessions',
+  STORE_SAVE_SESSIONS: 'store:save-sessions',
   CONTEXT_MENU_TERMINAL: 'context-menu:terminal',
   CONTEXT_MENU_ACTION: 'context-menu:action'
 } as const

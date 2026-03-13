@@ -38,6 +38,7 @@ type Action =
   | { type: 'ADD_PROJECT'; project: Project }
   | { type: 'REMOVE_PROJECT'; projectId: string }
   | { type: 'REORDER_PROJECTS'; fromIndex: number; toIndex: number }
+  | { type: 'SET_SESSIONS'; sessions: TerminalSession[] }
   | { type: 'ADD_SESSION'; session: TerminalSession }
   | { type: 'REMOVE_SESSION'; sessionId: string }
   | { type: 'SET_ACTIVE_TERMINAL'; sessionId: string | null }
@@ -73,6 +74,9 @@ function reducer(state: TerminalState, action: Action): TerminalState {
             : state.activeTerminalId
       }
     }
+
+    case 'SET_SESSIONS':
+      return { ...state, sessions: action.sessions }
 
     case 'ADD_SESSION':
       return {
@@ -126,6 +130,8 @@ interface TerminalContextValue {
   setActiveTerminal: (sessionId: string | null) => void
   markSessionDead: (sessionId: string) => void
   renameSession: (sessionId: string, name: string) => void
+  /** Mark a restored (dead) session as running again. */
+  reviveSession: (sessionId: string) => void
 }
 
 const TerminalContext = createContext<TerminalContextValue | null>(null)
@@ -137,10 +143,13 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
   const projectsRef = useRef(state.projects)
   projectsRef.current = state.projects
 
-  // Load persisted projects on mount, filtering out any whose paths no longer exist.
+  // Load persisted projects and sessions on mount.
   useEffect(() => {
     window.shellDeck.getProjects().then(async (projects) => {
-      if (projects.length === 0) return
+      if (projects.length === 0) {
+        sessionsLoaded.current = true
+        return
+      }
       const checks = await Promise.all(
         projects.map(async (p) => ({
           project: p,
@@ -155,18 +164,45 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
       if (valid.length !== projects.length) {
         window.shellDeck.saveProjects(valid)
       }
+
+      // Load saved sessions, filtering out any whose project no longer exists.
+      const validIds = new Set(valid.map((p) => p.id))
+      const savedSessions = await window.shellDeck.getSessions()
+      const validSessions = savedSessions
+        .filter((s) => validIds.has(s.projectId))
+        .map((s) => ({ ...s, isRunning: false }))
+      if (validSessions.length > 0) {
+        dispatch({ type: 'SET_SESSIONS', sessions: validSessions })
+        // Initialize session counter from the highest existing number to avoid name collisions.
+        const maxNum = validSessions.reduce((max, s) => {
+          const match = s.name.match(/^Terminal (\d+)$/)
+          return match ? Math.max(max, parseInt(match[1], 10)) : max
+        }, 0)
+        sessionCounter = maxNum
+      }
+      if (validSessions.length !== savedSessions.length) {
+        window.shellDeck.saveSessions(validSessions)
+      }
+      sessionsLoaded.current = true
     })
   }, [])
 
   // Persist projects whenever they change (skip the initial empty state).
-  const isInitialMount = useRef(true)
+  const isInitialProjectMount = useRef(true)
   useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false
+    if (isInitialProjectMount.current) {
+      isInitialProjectMount.current = false
       return
     }
     window.shellDeck.saveProjects(state.projects)
   }, [state.projects])
+
+  // Persist sessions whenever they change (skip until initial load completes).
+  const sessionsLoaded = useRef(false)
+  useEffect(() => {
+    if (!sessionsLoaded.current) return
+    window.shellDeck.saveSessions(state.sessions)
+  }, [state.sessions])
 
   const addProject = useCallback(
     (name: string, path: string) => {
@@ -238,6 +274,13 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
     [dispatch]
   )
 
+  const reviveSession = useCallback(
+    (sessionId: string) => {
+      dispatch({ type: 'SET_SESSION_RUNNING', sessionId, isRunning: true })
+    },
+    [dispatch]
+  )
+
   return (
     <TerminalContext.Provider
       value={{
@@ -250,7 +293,8 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
         removeSession,
         setActiveTerminal,
         markSessionDead,
-        renameSession
+        renameSession,
+        reviveSession
       }}
     >
       {children}

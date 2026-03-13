@@ -39,5 +39,7 @@ export const IPC = {
   PTY_DATA: 'pty:data',
   PTY_EXIT: 'pty:exit',
   SYSTEM_STATS: 'system:stats',
-  DIALOG_OPEN_FOLDER: 'dialog:open-folder'
+  DIALOG_OPEN_FOLDER: 'dialog:open-folder',
+  STORE_GET_PROJECTS: 'store:get-projects',
+  STORE_SAVE_PROJECTS: 'store:save-projects'
 } as const

@@ -11,6 +11,7 @@ import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
 import { PtyManager } from './pty-manager'
 import { SystemMonitor } from './system-monitor'
+import { loadProjects, saveProjects } from './store'
 import { IPC } from '../shared/types'
 
 const ptyManager = new PtyManager()
@@ -72,6 +73,10 @@ function registerIpcHandlers(): void {
     if (result.canceled || result.filePaths.length === 0) return null
     return result.filePaths[0]
   })
+
+  // Project persistence.
+  ipcMain.handle(IPC.STORE_GET_PROJECTS, () => loadProjects())
+  ipcMain.on(IPC.STORE_SAVE_PROJECTS, (_event, { projects }) => saveProjects(projects))
 }
 
 // --- App lifecycle ---

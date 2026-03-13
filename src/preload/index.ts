@@ -39,6 +39,16 @@ const api = {
     return ipcRenderer.invoke(IPC.DIALOG_OPEN_FOLDER)
   },
 
+  /** Load persisted projects from disk. */
+  getProjects: (): Promise<Array<{ id: string; name: string; path: string }>> => {
+    return ipcRenderer.invoke(IPC.STORE_GET_PROJECTS)
+  },
+
+  /** Save projects to disk. */
+  saveProjects: (projects: Array<{ id: string; name: string; path: string }>) => {
+    ipcRenderer.send(IPC.STORE_SAVE_PROJECTS, { projects })
+  },
+
   // --- Event listeners (main → renderer) ---
 
   /** Listen for PTY data output. */

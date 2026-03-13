@@ -8,7 +8,6 @@ import { useTerminalContext } from '@/context/terminal-context'
 import { useTerminalManager } from '@/hooks/use-terminal'
 import { Button } from '@/components/ui/button'
 import { FolderPlus } from 'lucide-react'
-import path from 'path'
 
 interface SidebarProps {
   terminalManager: ReturnType<typeof useTerminalManager>

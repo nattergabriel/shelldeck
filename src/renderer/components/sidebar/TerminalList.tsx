@@ -1,8 +1,10 @@
 /**
  * TerminalList — renders clickable terminal session entries under a project.
  * Clicking a session makes it the active (visible) terminal in the workspace.
+ * Double-clicking the name enters inline rename mode.
  */
 
+import { useState, useRef, useEffect } from 'react'
 import { useTerminalContext } from '@/context/terminal-context'
 import { useTerminalManager } from '@/hooks/use-terminal'
 import { TerminalSession } from '../../../shared/types'
@@ -17,7 +19,18 @@ interface TerminalListProps {
 }
 
 export function TerminalList({ sessions, projectPath, terminalManager }: TerminalListProps) {
-  const { state, setActiveTerminal, removeSession } = useTerminalContext()
+  const { state, setActiveTerminal, removeSession, renameSession } = useTerminalContext()
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editValue, setEditValue] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // Focus the input when entering edit mode.
+  useEffect(() => {
+    if (editingId) {
+      inputRef.current?.focus()
+      inputRef.current?.select()
+    }
+  }, [editingId])
 
   if (sessions.length === 0) return null
 
@@ -27,10 +40,29 @@ export function TerminalList({ sessions, projectPath, terminalManager }: Termina
     removeSession(sessionId)
   }
 
+  const startRename = (session: TerminalSession, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setEditingId(session.id)
+    setEditValue(session.name)
+  }
+
+  const commitRename = () => {
+    if (editingId && editValue.trim()) {
+      renameSession(editingId, editValue.trim())
+    }
+    setEditingId(null)
+  }
+
+  const cancelRename = () => {
+    setEditingId(null)
+  }
+
   return (
     <div className="ml-3 border-l border-border pl-2 space-y-0.5">
       {sessions.map((session) => {
         const isActive = state.activeTerminalId === session.id
+        const isEditing = editingId === session.id
+
         return (
           <div
             key={session.id}
@@ -44,24 +76,47 @@ export function TerminalList({ sessions, projectPath, terminalManager }: Termina
           >
             <div className="flex items-center gap-2 min-w-0">
               <Terminal className="h-3 w-3 shrink-0" />
-              <span className="truncate">{session.name}</span>
+
+              {isEditing ? (
+                <input
+                  ref={inputRef}
+                  className="bg-background border border-border rounded px-1 py-0 text-xs text-foreground w-full outline-none focus:ring-1 focus:ring-accent"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onBlur={commitRename}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') commitRename()
+                    if (e.key === 'Escape') cancelRename()
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                />
+              ) : (
+                <span className="truncate" onDoubleClick={(e) => startRename(session, e)}>
+                  {session.name}
+                </span>
+              )}
+
               {/* Status dot */}
-              <span
-                className={cn(
-                  'h-1.5 w-1.5 rounded-full shrink-0',
-                  session.isRunning ? 'bg-green-500' : 'bg-zinc-500'
-                )}
-              />
+              {!isEditing && (
+                <span
+                  className={cn(
+                    'h-1.5 w-1.5 rounded-full shrink-0',
+                    session.isRunning ? 'bg-green-500' : 'bg-zinc-500'
+                  )}
+                />
+              )}
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-              onClick={(e) => handleKill(session.id, e)}
-              title="Kill Terminal"
-            >
-              <X className="h-3 w-3" />
-            </Button>
+            {!isEditing && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                onClick={(e) => handleKill(session.id, e)}
+                title="Kill Terminal"
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            )}
           </div>
         )
       })}

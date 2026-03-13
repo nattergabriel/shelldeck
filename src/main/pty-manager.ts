@@ -52,13 +52,17 @@ export class PtyManager {
         this.window?.webContents.send(IPC.PTY_DATA, { id, data })
       })
 
-      // Notify the renderer when the PTY exits.
-      proc.onExit(({ exitCode }) => {
-        this.window?.webContents.send(IPC.PTY_EXIT, { id, exitCode })
-        this.ptys.delete(id)
-      })
-
       this.ptys.set(id, proc)
+
+      // Notify the renderer when the PTY exits.
+      // Guard: only act if this proc is still the current one for this ID,
+      // otherwise a restart has already replaced it with a new instance.
+      proc.onExit(({ exitCode }) => {
+        if (this.ptys.get(id) === proc) {
+          this.window?.webContents.send(IPC.PTY_EXIT, { id, exitCode })
+          this.ptys.delete(id)
+        }
+      })
     } catch (err) {
       // Spawn failed (e.g. invalid cwd). Write the error into the terminal
       // and immediately signal exit so the UI updates.

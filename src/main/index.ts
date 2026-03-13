@@ -8,7 +8,7 @@
  * - Persist and restore window state
  */
 
-import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, Menu } from 'electron'
 import { join } from 'path'
 import { existsSync } from 'fs'
 import { PtyManager } from './pty-manager'
@@ -115,6 +115,32 @@ function registerIpcHandlers(): void {
 
   // Filesystem checks.
   ipcMain.handle(IPC.FS_PATH_EXISTS, (_event, { path }) => existsSync(path))
+
+  // Terminal context menu (native right-click menu).
+  ipcMain.on(IPC.CONTEXT_MENU_TERMINAL, (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return
+    const menu = Menu.buildFromTemplate([
+      {
+        label: 'Copy',
+        role: 'copy'
+      },
+      {
+        label: 'Paste',
+        role: 'paste'
+      },
+      { type: 'separator' },
+      {
+        label: 'Clear Terminal',
+        click: () => event.sender.send(IPC.CONTEXT_MENU_ACTION, 'clear')
+      },
+      {
+        label: 'Select All',
+        role: 'selectAll'
+      }
+    ])
+    menu.popup({ window: win })
+  })
 }
 
 // --- App lifecycle ---

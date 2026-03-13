@@ -1,8 +1,8 @@
-# ShellDeck
+# shelldeck
 
 A multi-terminal dashboard for managing concurrent terminal sessions across different project workspaces. Built with Electron, React, and xterm.js.
 
-ShellDeck lets you organize terminals by project. Each project maps to a local folder, and every terminal you open under that project starts in the correct directory. Switching between terminals preserves output, so you never lose context.
+shelldeck lets you organize terminals by project. Each project maps to a local folder, and every terminal you open under that project starts in the correct directory. Switching between terminals preserves output, so you never lose context.
 
 ## Getting started
 

@@ -64,6 +64,20 @@ const api = {
     ipcRenderer.send(IPC.STORE_SAVE_SETTINGS, settings)
   },
 
+  /** Show the native terminal context menu. */
+  showTerminalContextMenu: () => {
+    ipcRenderer.send(IPC.CONTEXT_MENU_TERMINAL)
+  },
+
+  /** Listen for context menu actions (e.g. "clear"). */
+  onContextMenuAction: (callback: (action: string) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, action: string) => {
+      callback(action)
+    }
+    ipcRenderer.on(IPC.CONTEXT_MENU_ACTION, listener)
+    return () => ipcRenderer.removeListener(IPC.CONTEXT_MENU_ACTION, listener)
+  },
+
   // --- Event listeners (main → renderer) ---
 
   /** Listen for PTY data output. */

@@ -49,5 +49,28 @@ export function TerminalView({ sessionId, isVisible, terminalManager }: Terminal
     return () => window.removeEventListener('resize', handleResize)
   }, [isVisible, sessionId, terminalManager])
 
+  // Right-click context menu.
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault()
+      window.shellDeck.showTerminalContextMenu()
+    }
+    el.addEventListener('contextmenu', handleContextMenu)
+    return () => el.removeEventListener('contextmenu', handleContextMenu)
+  }, [])
+
+  // Handle context menu actions from the main process.
+  useEffect(() => {
+    if (!isVisible) return
+    const unsub = window.shellDeck.onContextMenuAction((action) => {
+      if (action === 'clear') {
+        terminalManager.clearTerminalScreen(sessionId)
+      }
+    })
+    return unsub
+  }, [isVisible, sessionId, terminalManager])
+
   return <div ref={containerRef} className="h-full w-full" />
 }

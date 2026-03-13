@@ -10,12 +10,14 @@
 import { useRef, useEffect, useCallback } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
+import { SearchAddon } from '@xterm/addon-search'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { useTerminalContext } from '../context/terminal-context'
 
 interface TerminalEntry {
   terminal: Terminal
   fitAddon: FitAddon
+  searchAddon: SearchAddon
 }
 
 export function useTerminalManager() {
@@ -74,7 +76,9 @@ export function useTerminalManager() {
     })
 
     const fitAddon = new FitAddon()
+    const searchAddon = new SearchAddon()
     terminal.loadAddon(fitAddon)
+    terminal.loadAddon(searchAddon)
     terminal.loadAddon(new WebLinksAddon())
 
     // Forward keystrokes to the PTY backend.
@@ -82,7 +86,7 @@ export function useTerminalManager() {
       window.shellDeck.writeTerminal(sessionId, data)
     })
 
-    terminalsRef.current.set(sessionId, { terminal, fitAddon })
+    terminalsRef.current.set(sessionId, { terminal, fitAddon, searchAddon })
 
     // Spawn the backend PTY (use default 80x24 until attached & fitted).
     window.shellDeck.spawnTerminal(sessionId, cwd, 80, 24)
@@ -138,11 +142,41 @@ export function useTerminalManager() {
     window.shellDeck.spawnTerminal(sessionId, cwd, entry.terminal.cols, entry.terminal.rows)
   }, [])
 
+  /** Search forward in the terminal scrollback. Returns true if a match was found. */
+  const searchTerminal = useCallback((sessionId: string, query: string): boolean => {
+    const entry = terminalsRef.current.get(sessionId)
+    if (!entry || !query) return false
+    return entry.searchAddon.findNext(query, { caseSensitive: false })
+  }, [])
+
+  /** Search backward in the terminal scrollback. */
+  const searchTerminalPrevious = useCallback((sessionId: string, query: string): boolean => {
+    const entry = terminalsRef.current.get(sessionId)
+    if (!entry || !query) return false
+    return entry.searchAddon.findPrevious(query, { caseSensitive: false })
+  }, [])
+
+  /** Clear search highlights. */
+  const clearSearch = useCallback((sessionId: string) => {
+    const entry = terminalsRef.current.get(sessionId)
+    entry?.searchAddon.clearDecorations()
+  }, [])
+
+  /** Clear the terminal screen (keeps the shell running). */
+  const clearTerminalScreen = useCallback((sessionId: string) => {
+    const entry = terminalsRef.current.get(sessionId)
+    entry?.terminal.clear()
+  }, [])
+
   return {
     createTerminal,
     attachTerminal,
     fitTerminal,
     destroyTerminal,
-    restartTerminal
+    restartTerminal,
+    searchTerminal,
+    searchTerminalPrevious,
+    clearSearch,
+    clearTerminalScreen
   }
 }

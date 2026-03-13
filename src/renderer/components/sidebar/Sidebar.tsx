@@ -34,7 +34,7 @@ export function Sidebar({ width, terminalManager }: SidebarProps) {
     >
       {/* Draggable title bar region for macOS */}
       <div className="h-10 flex items-center px-4 border-b border-border draggable-region">
-        <span className="text-sm font-semibold text-foreground pl-16">ShellDeck</span>
+        <span className="text-sm font-semibold text-foreground pl-16">shelldeck</span>
       </div>
 
       {/* Add project button */}

@@ -37,6 +37,7 @@ type Action =
   | { type: 'SET_PROJECTS'; projects: Project[] }
   | { type: 'ADD_PROJECT'; project: Project }
   | { type: 'REMOVE_PROJECT'; projectId: string }
+  | { type: 'REORDER_PROJECTS'; fromIndex: number; toIndex: number }
   | { type: 'ADD_SESSION'; session: TerminalSession }
   | { type: 'REMOVE_SESSION'; sessionId: string }
   | { type: 'SET_ACTIVE_TERMINAL'; sessionId: string | null }
@@ -50,6 +51,13 @@ function reducer(state: TerminalState, action: Action): TerminalState {
 
     case 'ADD_PROJECT':
       return { ...state, projects: [...state.projects, action.project] }
+
+    case 'REORDER_PROJECTS': {
+      const projects = [...state.projects]
+      const [moved] = projects.splice(action.fromIndex, 1)
+      projects.splice(action.toIndex, 0, moved)
+      return { ...state, projects }
+    }
 
     case 'REMOVE_PROJECT': {
       const sessionIds = state.sessions
@@ -112,6 +120,7 @@ interface TerminalContextValue {
   dispatch: React.Dispatch<Action>
   addProject: (name: string, path: string) => void
   removeProject: (projectId: string) => void
+  reorderProjects: (fromIndex: number, toIndex: number) => void
   createSession: (projectId: string) => string
   removeSession: (sessionId: string) => void
   setActiveTerminal: (sessionId: string | null) => void
@@ -178,6 +187,13 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
     [dispatch]
   )
 
+  const reorderProjects = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      dispatch({ type: 'REORDER_PROJECTS', fromIndex, toIndex })
+    },
+    [dispatch]
+  )
+
   /** Creates a new terminal session and returns its ID (so the caller can spawn the PTY). */
   const createSession = useCallback(
     (projectId: string): string => {
@@ -229,6 +245,7 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
         dispatch,
         addProject,
         removeProject,
+        reorderProjects,
         createSession,
         removeSession,
         setActiveTerminal,

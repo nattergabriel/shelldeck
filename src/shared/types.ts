@@ -3,7 +3,7 @@
  * These define the IPC contract and common data structures.
  */
 
-/** Represents a project (local folder) added to ShellDeck. */
+/** Represents a project (local folder) added to shelldeck. */
 export interface Project {
   id: string
   name: string
@@ -44,5 +44,7 @@ export const IPC = {
   STORE_SAVE_PROJECTS: 'store:save-projects',
   STORE_GET_SETTINGS: 'store:get-settings',
   STORE_SAVE_SETTINGS: 'store:save-settings',
-  FS_PATH_EXISTS: 'fs:path-exists'
+  FS_PATH_EXISTS: 'fs:path-exists',
+  CONTEXT_MENU_TERMINAL: 'context-menu:terminal',
+  CONTEXT_MENU_ACTION: 'context-menu:action'
 } as const

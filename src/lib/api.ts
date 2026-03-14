@@ -27,12 +27,7 @@ function getShell(): string {
 
 const ptyHandles = new Map<string, PtyHandle>()
 
-export function spawnPty(
-  id: string,
-  cwd: string,
-  cols: number,
-  rows: number
-): PtyHandle {
+export function spawnPty(id: string, cwd: string, cols: number, rows: number): PtyHandle {
   const handle: PtyHandle = {
     pid: -1,
     onData: () => {},
@@ -66,24 +61,16 @@ export function spawnPty(
   }
   handle.write = (data: string) => {
     ready.then((pid) =>
-      invoke('pty_write', { pid, data }).catch((e) =>
-        console.error('Write error:', e)
-      )
+      invoke('pty_write', { pid, data }).catch((e) => console.error('Write error:', e))
     )
   }
   handle.resize = (cols: number, rows: number) => {
     ready.then((pid) =>
-      invoke('pty_resize', { pid, cols, rows }).catch((e) =>
-        console.error('Resize error:', e)
-      )
+      invoke('pty_resize', { pid, cols, rows }).catch((e) => console.error('Resize error:', e))
     )
   }
   handle.kill = () => {
-    ready.then((pid) =>
-      invoke('pty_kill', { pid }).catch((e) =>
-        console.error('Kill error:', e)
-      )
-    )
+    ready.then((pid) => invoke('pty_kill', { pid }).catch((e) => console.error('Kill error:', e)))
   }
 
   // Start the read loop.

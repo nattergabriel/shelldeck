@@ -32,9 +32,9 @@ export function Sidebar({ width, terminalManager }: SidebarProps) {
       <div className="h-12 shrink-0" data-tauri-drag-region />
 
       {/* Add project button */}
-      <div className="px-2 pb-1">
+      <div className="px-3 pb-3">
         <button
-          className="w-full flex items-center gap-2 px-2.5 py-1.5 text-sm text-muted-foreground rounded-md hover:bg-accent hover:text-foreground transition-colors"
+          className="w-full flex items-center justify-center gap-2 px-2.5 py-1.5 text-sm text-muted-foreground rounded-md border border-border hover:bg-accent hover:text-foreground transition-colors"
           onClick={handleAddProject}
         >
           <FolderPlus className="h-4 w-4" />
@@ -42,12 +42,12 @@ export function Sidebar({ width, terminalManager }: SidebarProps) {
         </button>
       </div>
 
+      <div className="border-b border-border mx-3 mb-2" />
+
       {/* Project list with terminal sessions */}
       <div className="flex-1 overflow-y-auto px-2 pb-2">
         {state.projects.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center mt-12 px-4">
-            No projects yet
-          </p>
+          <p className="text-sm text-muted-foreground text-center mt-12 px-4">No projects yet</p>
         ) : (
           <ProjectList terminalManager={terminalManager} />
         )}

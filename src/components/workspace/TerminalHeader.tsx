@@ -24,7 +24,10 @@ export function TerminalHeader({ session, projectPath, terminalManager }: Termin
   }
 
   return (
-    <div className="flex items-center justify-between px-4 h-12 border-b border-border bg-card shrink-0" data-tauri-drag-region>
+    <div
+      className="flex items-center justify-between px-4 h-12 border-b border-border bg-card shrink-0"
+      data-tauri-drag-region
+    >
       <div className="flex items-center gap-3">
         <span className="text-sm font-medium text-foreground">{session.name}</span>
         <span

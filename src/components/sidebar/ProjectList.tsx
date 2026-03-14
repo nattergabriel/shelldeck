@@ -1,14 +1,13 @@
 /**
  * ProjectList — renders each project with its terminal sessions.
- * Provides controls to add new terminals and switch between existing ones.
- * Projects can be reordered via drag-and-drop.
+ * Projects can be reordered via pointer-based drag-and-drop.
  */
 
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useTerminalContext } from '@/context/terminal-context'
 import { TerminalList } from './TerminalList'
 import { useTerminalManager } from '@/hooks/use-terminal'
-import { Plus, Folder, X, AlertTriangle, GripVertical } from 'lucide-react'
-import { useState, useRef } from 'react'
+import { Plus, Folder, X, AlertTriangle } from 'lucide-react'
 import { pathExists } from '@/lib/api'
 
 interface ProjectListProps {
@@ -18,9 +17,11 @@ interface ProjectListProps {
 export function ProjectList({ terminalManager }: ProjectListProps) {
   const { state, createSession, removeProject, reorderProjects } = useTerminalContext()
   const [invalidPaths, setInvalidPaths] = useState<Set<string>>(new Set())
-  const [dragIndex, setDragIndex] = useState<number | null>(null)
-  const [dropIndex, setDropIndex] = useState<number | null>(null)
-  const dragNodeRef = useRef<HTMLDivElement | null>(null)
+
+  // Drag state
+  const [dragging, setDragging] = useState<number | null>(null)
+  const [dropTarget, setDropTarget] = useState<number | null>(null)
+  const itemRefs = useRef<Map<number, HTMLDivElement>>(new Map())
 
   const handleNewTerminal = async (projectId: string, projectPath: string) => {
     const exists = await pathExists(projectPath)
@@ -37,56 +38,80 @@ export function ProjectList({ terminalManager }: ProjectListProps) {
     terminalManager.createTerminal(sessionId, projectPath)
   }
 
-  const handleDragStart = (e: React.DragEvent, index: number) => {
-    setDragIndex(index)
-    dragNodeRef.current = e.currentTarget as HTMLDivElement
-    e.dataTransfer.effectAllowed = 'move'
-    requestAnimationFrame(() => {
-      dragNodeRef.current?.classList.add('opacity-50')
-    })
-  }
+  const findDropIndex = useCallback(
+    (clientY: number): number | null => {
+      let closest: { index: number; distance: number } | null = null
+      for (const [index, el] of itemRefs.current) {
+        const rect = el.getBoundingClientRect()
+        const mid = rect.top + rect.height / 2
+        const distance = Math.abs(clientY - mid)
+        if (!closest || distance < closest.distance) {
+          closest = { index: clientY < mid ? index : index + 1, distance }
+        }
+      }
+      return closest?.index ?? null
+    },
+    []
+  )
 
-  const handleDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-    if (dragIndex !== null && index !== dragIndex) {
-      setDropIndex(index)
-    }
-  }
+  useEffect(() => {
+    if (dragging === null) return
 
-  const handleDragEnd = () => {
-    dragNodeRef.current?.classList.remove('opacity-50')
-    if (dragIndex !== null && dropIndex !== null && dragIndex !== dropIndex) {
-      reorderProjects(dragIndex, dropIndex)
+    const onPointerMove = (e: PointerEvent) => {
+      const target = findDropIndex(e.clientY)
+      setDropTarget(target)
     }
-    setDragIndex(null)
-    setDropIndex(null)
-    dragNodeRef.current = null
-  }
+
+    const onPointerUp = () => {
+      if (dragging !== null && dropTarget !== null) {
+        const to = dropTarget > dragging ? dropTarget - 1 : dropTarget
+        if (to !== dragging) {
+          reorderProjects(dragging, to)
+        }
+      }
+      setDragging(null)
+      setDropTarget(null)
+    }
+
+    window.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('pointerup', onPointerUp)
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', onPointerUp)
+    }
+  }, [dragging, dropTarget, findDropIndex, reorderProjects])
 
   return (
     <div className="space-y-0.5">
       {state.projects.map((project, index) => {
         const sessions = state.sessions.filter((s) => s.projectId === project.id)
         const isInvalid = invalidPaths.has(project.id)
-        const isDropTarget = dropIndex === index && dragIndex !== index
+        const isDragging = dragging === index
+        const showIndicatorBefore = dropTarget === index && dragging !== null && dragging !== index
 
         return (
           <div
             key={project.id}
-            draggable
-            onDragStart={(e) => handleDragStart(e, index)}
-            onDragOver={(e) => handleDragOver(e, index)}
-            onDragEnd={handleDragEnd}
-            onDragLeave={() => setDropIndex(null)}
+            ref={(el) => {
+              if (el) itemRefs.current.set(index, el)
+              else itemRefs.current.delete(index)
+            }}
           >
-            {/* Drop indicator line */}
-            {isDropTarget && <div className="h-0.5 bg-foreground/30 rounded-full mx-2" />}
+            {showIndicatorBefore && (
+              <div className="h-0.5 bg-foreground/30 rounded-full mx-2 mb-0.5" />
+            )}
 
             {/* Project header */}
-            <div className="flex items-center justify-between px-2 py-1.5 rounded-md group hover:bg-accent transition-colors">
+            <div
+              className={`flex items-center justify-between px-2 py-1.5 rounded-md group hover:bg-accent transition-colors cursor-grab active:cursor-grabbing ${isDragging ? 'opacity-40' : ''}`}
+              onPointerDown={(e) => {
+                // Only start drag on left click and not on buttons
+                if (e.button !== 0 || (e.target as HTMLElement).closest('button')) return
+                e.preventDefault()
+                setDragging(index)
+              }}
+            >
               <div className="flex items-center gap-2 min-w-0">
-                <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0 cursor-grab opacity-0 group-hover:opacity-100 transition-opacity" />
                 <Folder className="h-4 w-4 text-muted-foreground shrink-0" />
                 <span className="text-sm text-foreground truncate">{project.name}</span>
               </div>
@@ -108,7 +133,6 @@ export function ProjectList({ terminalManager }: ProjectListProps) {
               </div>
             </div>
 
-            {/* Warning if the project path no longer exists */}
             {isInvalid && (
               <div className="flex items-center gap-1.5 px-2 py-1 ml-6 text-xs text-yellow-500">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -116,8 +140,15 @@ export function ProjectList({ terminalManager }: ProjectListProps) {
               </div>
             )}
 
-            {/* Terminal sessions for this project */}
             <TerminalList sessions={sessions} terminalManager={terminalManager} />
+
+            {/* Show indicator after the last item if dropping at the end */}
+            {dropTarget === state.projects.length &&
+              index === state.projects.length - 1 &&
+              dragging !== null &&
+              dragging !== state.projects.length - 1 && (
+                <div className="h-0.5 bg-foreground/30 rounded-full mx-2 mt-0.5" />
+              )}
           </div>
         )
       })}

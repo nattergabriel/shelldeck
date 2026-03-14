@@ -82,7 +82,12 @@ export function TerminalList({ sessions, terminalManager }: TerminalListProps) {
             }}
           >
             <div className="flex items-center gap-2 min-w-0">
-              <Terminal className="h-3.5 w-3.5 shrink-0" />
+              <Terminal
+                className={cn(
+                  'h-3.5 w-3.5 shrink-0',
+                  session.isRunning ? 'text-green-500' : ''
+                )}
+              />
 
               {isEditing ? (
                 <input
@@ -101,16 +106,6 @@ export function TerminalList({ sessions, terminalManager }: TerminalListProps) {
                 <span className="truncate" onDoubleClick={(e) => startRename(session, e)}>
                   {session.name}
                 </span>
-              )}
-
-              {/* Status dot */}
-              {!isEditing && (
-                <span
-                  className={cn(
-                    'h-2 w-2 rounded-full shrink-0',
-                    session.isRunning ? 'bg-green-500' : 'bg-muted-foreground/40'
-                  )}
-                />
               )}
             </div>
             {!isEditing && (

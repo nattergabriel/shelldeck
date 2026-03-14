@@ -56,74 +56,77 @@ export function useTerminalManager() {
    * Create a new xterm.js Terminal instance and spawn the backend PTY.
    * The terminal is not yet attached to a DOM element — call `attachTerminal` for that.
    */
-  const createTerminal = useCallback((sessionId: string, cwd: string) => {
-    const terminal = new Terminal({
-      cursorBlink: true,
-      fontSize: 13,
-      fontFamily: '"SF Mono", "Fira Code", "Cascadia Code", Menlo, monospace',
-      theme: {
-        background: '#212121',
-        foreground: '#e6e1da',
-        cursor: '#e6e1da',
-        selectionBackground: '#3a3a3a',
-        black: '#212121',
-        red: '#ef4444',
-        green: '#22c55e',
-        yellow: '#eab308',
-        blue: '#3b82f6',
-        magenta: '#a855f7',
-        cyan: '#06b6d4',
-        white: '#fafafa',
-        brightBlack: '#52525b',
-        brightRed: '#f87171',
-        brightGreen: '#4ade80',
-        brightYellow: '#facc15',
-        brightBlue: '#60a5fa',
-        brightMagenta: '#c084fc',
-        brightCyan: '#22d3ee',
-        brightWhite: '#ffffff'
-      },
-      allowProposedApi: true
-    })
+  const createTerminal = useCallback(
+    (sessionId: string, cwd: string) => {
+      const terminal = new Terminal({
+        cursorBlink: true,
+        fontSize: 13,
+        fontFamily: '"SF Mono", "Fira Code", "Cascadia Code", Menlo, monospace',
+        theme: {
+          background: '#212121',
+          foreground: '#e6e1da',
+          cursor: '#e6e1da',
+          selectionBackground: '#3a3a3a',
+          black: '#212121',
+          red: '#ef4444',
+          green: '#22c55e',
+          yellow: '#eab308',
+          blue: '#3b82f6',
+          magenta: '#a855f7',
+          cyan: '#06b6d4',
+          white: '#fafafa',
+          brightBlack: '#52525b',
+          brightRed: '#f87171',
+          brightGreen: '#4ade80',
+          brightYellow: '#facc15',
+          brightBlue: '#60a5fa',
+          brightMagenta: '#c084fc',
+          brightCyan: '#22d3ee',
+          brightWhite: '#ffffff'
+        },
+        allowProposedApi: true
+      })
 
-    const fitAddon = new FitAddon()
-    const searchAddon = new SearchAddon()
-    terminal.loadAddon(fitAddon)
-    terminal.loadAddon(searchAddon)
-    terminal.loadAddon(new WebLinksAddon())
+      const fitAddon = new FitAddon()
+      const searchAddon = new SearchAddon()
+      terminal.loadAddon(fitAddon)
+      terminal.loadAddon(searchAddon)
+      terminal.loadAddon(new WebLinksAddon())
 
-    terminalsRef.current.set(sessionId, { terminal, fitAddon, searchAddon })
+      terminalsRef.current.set(sessionId, { terminal, fitAddon, searchAddon })
 
-    // Spawn PTY via the PTY backend (use default 80x24 until attached & fitted).
-    const pty = spawnPty(sessionId, cwd, 80, 24)
-    wirePty(pty, terminal, sessionId)
+      // Spawn PTY via the PTY backend (use default 80x24 until attached & fitted).
+      const pty = spawnPty(sessionId, cwd, 80, 24)
+      wirePty(pty, terminal, sessionId)
 
-    // Forward keystrokes from xterm to PTY.
-    terminal.onData((data) => {
-      writePty(sessionId, data)
-    })
+      // Forward keystrokes from xterm to PTY.
+      terminal.onData((data) => {
+        writePty(sessionId, data)
+      })
 
-    // Sync resize from xterm to PTY.
-    terminal.onResize((e) => {
-      // Guard against 0-dimension resizes (e.g. fit() on a hidden terminal).
-      if (e.cols > 0 && e.rows > 0) {
-        resizePty(sessionId, e.cols, e.rows)
-      }
-    })
-
-    // If a TerminalView already requested attachment before we existed, fulfill it now.
-    const pendingContainer = pendingAttachRef.current.get(sessionId)
-    if (pendingContainer) {
-      pendingAttachRef.current.delete(sessionId)
-      terminal.open(pendingContainer)
-      // Fit only if the container is visible (hidden containers have 0 dimensions).
-      requestAnimationFrame(() => {
-        if (pendingContainer.offsetWidth > 0 && pendingContainer.offsetHeight > 0) {
-          fitAddon.fit()
+      // Sync resize from xterm to PTY.
+      terminal.onResize((e) => {
+        // Guard against 0-dimension resizes (e.g. fit() on a hidden terminal).
+        if (e.cols > 0 && e.rows > 0) {
+          resizePty(sessionId, e.cols, e.rows)
         }
       })
-    }
-  }, [wirePty])
+
+      // If a TerminalView already requested attachment before we existed, fulfill it now.
+      const pendingContainer = pendingAttachRef.current.get(sessionId)
+      if (pendingContainer) {
+        pendingAttachRef.current.delete(sessionId)
+        terminal.open(pendingContainer)
+        // Fit only if the container is visible (hidden containers have 0 dimensions).
+        requestAnimationFrame(() => {
+          if (pendingContainer.offsetWidth > 0 && pendingContainer.offsetHeight > 0) {
+            fitAddon.fit()
+          }
+        })
+      }
+    },
+    [wirePty]
+  )
 
   /**
    * Attach an xterm.js Terminal to a DOM container element.

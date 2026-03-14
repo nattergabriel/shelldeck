@@ -17,6 +17,7 @@ import React, {
 } from 'react'
 import { Project, TerminalSession } from '@/types'
 import { getProjects, saveProjects, getSessions, saveSessions, pathExists } from '@/lib/api'
+import { useSettings } from '@/context/settings-context'
 
 // --- State shape ---
 
@@ -164,6 +165,7 @@ let sessionCounter = 0
 
 export function TerminalProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState)
+  const { settings } = useSettings()
   const projectsRef = useRef(state.projects)
   projectsRef.current = state.projects
 
@@ -310,9 +312,10 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
 
   const notifyBell = useCallback(
     (sessionId: string) => {
+      if (!settings.bellNotificationsEnabled) return
       dispatch({ type: 'NOTIFY_BELL', sessionId })
     },
-    [dispatch]
+    [dispatch, settings.bellNotificationsEnabled]
   )
 
   return (

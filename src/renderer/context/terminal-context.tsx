@@ -3,7 +3,7 @@
  *
  * Uses React Context + useReducer for predictable state updates.
  * All terminal and project mutations go through dispatched actions.
- * Projects are persisted to disk via the main process store.
+ * Projects are persisted to disk via Tauri commands.
  */
 
 import React, {
@@ -16,6 +16,13 @@ import React, {
   ReactNode
 } from 'react'
 import { Project, TerminalSession } from '../../shared/types'
+import {
+  getProjects,
+  saveProjects,
+  getSessions,
+  saveSessions,
+  pathExists
+} from '../lib/api'
 
 // --- State shape ---
 
@@ -145,7 +152,7 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
 
   // Load persisted projects and sessions on mount.
   useEffect(() => {
-    window.shellDeck.getProjects().then(async (projects) => {
+    getProjects().then(async (projects) => {
       if (projects.length === 0) {
         sessionsLoaded.current = true
         return
@@ -153,7 +160,7 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
       const checks = await Promise.all(
         projects.map(async (p) => ({
           project: p,
-          exists: await window.shellDeck.pathExists(p.path)
+          exists: await pathExists(p.path)
         }))
       )
       const valid = checks.filter((c) => c.exists).map((c) => c.project)
@@ -162,12 +169,12 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
       }
       // Persist the cleaned list if any projects were removed.
       if (valid.length !== projects.length) {
-        window.shellDeck.saveProjects(valid)
+        saveProjects(valid)
       }
 
       // Load saved sessions, filtering out any whose project no longer exists.
       const validIds = new Set(valid.map((p) => p.id))
-      const savedSessions = await window.shellDeck.getSessions()
+      const savedSessions = await getSessions()
       const validSessions = savedSessions
         .filter((s) => validIds.has(s.projectId))
         .map((s) => ({ ...s, isRunning: false }))
@@ -181,7 +188,7 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
         sessionCounter = maxNum
       }
       if (validSessions.length !== savedSessions.length) {
-        window.shellDeck.saveSessions(validSessions)
+        saveSessions(validSessions)
       }
       sessionsLoaded.current = true
     })
@@ -194,14 +201,14 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
       isInitialProjectMount.current = false
       return
     }
-    window.shellDeck.saveProjects(state.projects)
+    saveProjects(state.projects)
   }, [state.projects])
 
   // Persist sessions whenever they change (skip until initial load completes).
   const sessionsLoaded = useRef(false)
   useEffect(() => {
     if (!sessionsLoaded.current) return
-    window.shellDeck.saveSessions(state.sessions)
+    saveSessions(state.sessions)
   }, [state.sessions])
 
   const addProject = useCallback(

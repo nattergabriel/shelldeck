@@ -11,6 +11,7 @@ import { Workspace } from '@/components/workspace/Workspace'
 import { StatusBar } from '@/components/statusbar/StatusBar'
 import { useTerminalManager } from '@/hooks/use-terminal'
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts'
+import { getSettings, saveSettings } from '@/lib/api'
 
 const DEFAULT_SIDEBAR_WIDTH = 256
 
@@ -22,7 +23,7 @@ export function App() {
 
   // Load persisted sidebar width on mount.
   useEffect(() => {
-    window.shellDeck.getSettings().then((s) => {
+    getSettings().then((s) => {
       const saved = s?.sidebarWidth
       if (typeof saved === 'number' && saved >= 180 && saved <= 480) {
         setSidebarWidth(saved)
@@ -32,7 +33,7 @@ export function App() {
 
   // Persist sidebar width when the user finishes dragging.
   const handleResizeEnd = useCallback(() => {
-    window.shellDeck.saveSettings({ sidebarWidth })
+    saveSettings({ sidebarWidth })
   }, [sidebarWidth])
 
   return (

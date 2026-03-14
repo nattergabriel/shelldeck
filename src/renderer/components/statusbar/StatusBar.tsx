@@ -7,6 +7,7 @@ import { useTerminalContext } from '@/context/terminal-context'
 import { useSystemStats } from '@/hooks/use-system-stats'
 import { Button } from '@/components/ui/button'
 import { Cpu, MemoryStick, OctagonX } from 'lucide-react'
+import { killAllPtys } from '@/lib/api'
 
 export function StatusBar() {
   const { state } = useTerminalContext()
@@ -16,7 +17,7 @@ export function StatusBar() {
   const totalSessions = state.sessions.length
 
   const handleStopAll = () => {
-    window.shellDeck.killAllTerminals()
+    killAllPtys()
   }
 
   return (

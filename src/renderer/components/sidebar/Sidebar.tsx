@@ -9,6 +9,7 @@ import { useTerminalContext } from '@/context/terminal-context'
 import { useTerminalManager } from '@/hooks/use-terminal'
 import { Button } from '@/components/ui/button'
 import { FolderPlus } from 'lucide-react'
+import { openFolderDialog } from '@/lib/api'
 
 interface SidebarProps {
   width: number
@@ -19,7 +20,7 @@ export function Sidebar({ width, terminalManager }: SidebarProps) {
   const { state, addProject } = useTerminalContext()
 
   const handleAddProject = async () => {
-    const folderPath = await window.shellDeck.openFolderDialog()
+    const folderPath = await openFolderDialog()
     if (!folderPath) return
 
     // Use the folder name as the project name.
@@ -29,13 +30,11 @@ export function Sidebar({ width, terminalManager }: SidebarProps) {
 
   return (
     <aside
-      className="flex flex-col border-r border-border bg-zinc-900/60 backdrop-blur-xl shrink-0"
+      className="flex flex-col border-r border-border bg-zinc-900 shrink-0"
       style={{ width }}
     >
-      {/* Draggable title bar region for macOS */}
-      <div className="h-10 flex items-center px-4 border-b border-border/50 draggable-region">
-        <span className="text-sm font-semibold text-foreground pl-16">shelldeck</span>
-      </div>
+      {/* Spacer for macOS traffic lights */}
+      <div className="h-12 border-b border-border/50" />
 
       {/* Add project button */}
       <div className="p-3">

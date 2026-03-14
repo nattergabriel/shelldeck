@@ -1,0 +1,18 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Capability for the main window",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "pty:default",
+    "dialog:default",
+    "os:default",
+    "fs:default",
+    "shell:default",
+    {
+      "identifier": "fs:allow-exists",
+      "allow": [{ "path": "**" }]
+    }
+  ]
+}

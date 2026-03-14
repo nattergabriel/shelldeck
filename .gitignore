@@ -1,8 +1,11 @@
 node_modules/
-out/
 dist/
 build/
 *.log
 .DS_Store
 .claude
 CLAUDE.md
+
+# Tauri
+src-tauri/target/
+src-tauri/gen/

@@ -4,9 +4,11 @@
  * Attaches the terminal to the DOM on mount and handles resize events.
  * The xterm instance itself is managed by useTerminalManager (not local state),
  * so it persists across show/hide cycles.
+ *
+ * Right-click shows a custom context menu (replaces Electron's native menu).
  */
 
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { useTerminalManager } from '@/hooks/use-terminal'
 import '@xterm/xterm/css/xterm.css'
 
@@ -18,9 +20,9 @@ interface TerminalViewProps {
 
 export function TerminalView({ sessionId, isVisible, terminalManager }: TerminalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
+
   // Attach the xterm terminal to this container on mount.
-  // For restored sessions the instance may not exist yet — attachTerminal queues
-  // the container and createTerminal fulfills it when the PTY is spawned.
   useEffect(() => {
     if (!containerRef.current) return
     terminalManager.attachTerminal(sessionId, containerRef.current)
@@ -29,7 +31,6 @@ export function TerminalView({ sessionId, isVisible, terminalManager }: Terminal
   // Refit when this terminal becomes visible (container dimensions may have changed).
   useEffect(() => {
     if (isVisible) {
-      // Small delay to let the DOM settle before measuring.
       const timeout = setTimeout(() => {
         terminalManager.fitTerminal(sessionId)
       }, 50)
@@ -54,22 +55,40 @@ export function TerminalView({ sessionId, isVisible, terminalManager }: Terminal
     if (!el) return
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault()
-      window.shellDeck.showTerminalContextMenu()
+      setContextMenu({ x: e.clientX, y: e.clientY })
     }
     el.addEventListener('contextmenu', handleContextMenu)
     return () => el.removeEventListener('contextmenu', handleContextMenu)
   }, [])
 
-  // Handle context menu actions from the main process.
+  // Close context menu on any click.
   useEffect(() => {
-    if (!isVisible) return
-    const unsub = window.shellDeck.onContextMenuAction((action) => {
-      if (action === 'clear') {
-        terminalManager.clearTerminalScreen(sessionId)
-      }
-    })
-    return unsub
-  }, [isVisible, sessionId, terminalManager])
+    if (!contextMenu) return
+    const close = () => setContextMenu(null)
+    window.addEventListener('click', close)
+    return () => window.removeEventListener('click', close)
+  }, [contextMenu])
 
-  return <div ref={containerRef} className="h-full w-full" />
+  const handleClear = () => {
+    terminalManager.clearTerminalScreen(sessionId)
+    setContextMenu(null)
+  }
+
+  return (
+    <div ref={containerRef} className="h-full w-full relative">
+      {contextMenu && (
+        <div
+          className="fixed z-50 min-w-[120px] rounded-md border border-border bg-zinc-900 py-1 shadow-lg"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+        >
+          <button
+            className="w-full px-3 py-1.5 text-left text-xs text-foreground hover:bg-accent"
+            onClick={handleClear}
+          >
+            Clear Terminal
+          </button>
+        </div>
+      )}
+    </div>
+  )
 }

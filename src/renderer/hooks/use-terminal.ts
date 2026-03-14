@@ -1,18 +1,19 @@
 /**
  * useTerminalManager — manages the xterm.js Terminal instances and their
- * connection to the PTY backend via the IPC bridge.
+ * connection to the PTY backend via tauri-pty.
  *
  * Keeps a persistent map of Terminal instances (ref-based, survives re-renders).
  * Terminals are created once and never destroyed until explicitly removed,
  * ensuring output is preserved when switching between sessions.
  */
 
-import { useRef, useEffect, useCallback } from 'react'
+import { useRef, useCallback } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { SearchAddon } from '@xterm/addon-search'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { useTerminalContext } from '../context/terminal-context'
+import { spawnPty, writePty, resizePty, killPty } from '../lib/api'
 
 interface TerminalEntry {
   terminal: Terminal
@@ -24,23 +25,8 @@ export function useTerminalManager() {
   const terminalsRef = useRef(new Map<string, TerminalEntry>())
   const { markSessionDead } = useTerminalContext()
   const pendingAttachRef = useRef(new Map<string, HTMLElement>())
-
-  // Listen for PTY data and exit events from the main process.
-  useEffect(() => {
-    const unsubData = window.shellDeck.onTerminalData(({ id, data }) => {
-      const entry = terminalsRef.current.get(id)
-      entry?.terminal.write(data)
-    })
-
-    const unsubExit = window.shellDeck.onTerminalExit(({ id }) => {
-      markSessionDead(id)
-    })
-
-    return () => {
-      unsubData()
-      unsubExit()
-    }
-  }, [markSessionDead])
+  const markSessionDeadRef = useRef(markSessionDead)
+  markSessionDeadRef.current = markSessionDead
 
   /**
    * Create a new xterm.js Terminal instance and spawn the backend PTY.
@@ -82,15 +68,30 @@ export function useTerminalManager() {
     terminal.loadAddon(searchAddon)
     terminal.loadAddon(new WebLinksAddon())
 
-    // Forward keystrokes to the PTY backend.
-    terminal.onData((data) => {
-      window.shellDeck.writeTerminal(sessionId, data)
-    })
-
     terminalsRef.current.set(sessionId, { terminal, fitAddon, searchAddon })
 
-    // Spawn the backend PTY (use default 80x24 until attached & fitted).
-    window.shellDeck.spawnTerminal(sessionId, cwd, 80, 24)
+    // Spawn PTY via tauri-pty (use default 80x24 until attached & fitted).
+    const pty = spawnPty(sessionId, cwd, 80, 24)
+
+    // Connect PTY output to terminal display.
+    pty.onData((data) => {
+      terminal.write(new Uint8Array(data))
+    })
+
+    // Handle PTY exit.
+    pty.onExit(() => {
+      markSessionDeadRef.current(sessionId)
+    })
+
+    // Forward keystrokes from xterm to PTY.
+    terminal.onData((data) => {
+      writePty(sessionId, data)
+    })
+
+    // Sync resize from xterm to PTY.
+    terminal.onResize((e) => {
+      resizePty(sessionId, e.cols, e.rows)
+    })
 
     // If a TerminalView already requested attachment before we existed, fulfill it now.
     const pendingContainer = pendingAttachRef.current.get(sessionId)
@@ -99,7 +100,6 @@ export function useTerminalManager() {
       terminal.open(pendingContainer)
       requestAnimationFrame(() => {
         fitAddon.fit()
-        window.shellDeck.resizeTerminal(sessionId, terminal.cols, terminal.rows)
       })
     }
   }, [])
@@ -123,10 +123,9 @@ export function useTerminalManager() {
       terminal.open(container)
     }
 
-    // Fit to container and sync dimensions with the PTY backend.
+    // Fit to container (resize event will propagate to PTY via onResize handler).
     requestAnimationFrame(() => {
       fitAddon.fit()
-      window.shellDeck.resizeTerminal(sessionId, terminal.cols, terminal.rows)
     })
   }, [])
 
@@ -134,9 +133,7 @@ export function useTerminalManager() {
   const fitTerminal = useCallback((sessionId: string) => {
     const entry = terminalsRef.current.get(sessionId)
     if (!entry) return
-    const { terminal, fitAddon } = entry
-    fitAddon.fit()
-    window.shellDeck.resizeTerminal(sessionId, terminal.cols, terminal.rows)
+    entry.fitAddon.fit()
   }, [])
 
   /** Dispose an xterm.js instance and kill the backend PTY. */
@@ -147,7 +144,7 @@ export function useTerminalManager() {
       entry.terminal.dispose()
       terminalsRef.current.delete(sessionId)
     }
-    window.shellDeck.killTerminal(sessionId)
+    killPty(sessionId)
   }, [])
 
   /** Restart: kill the old PTY, clear the terminal, and spawn a new PTY in the same cwd. */
@@ -159,9 +156,21 @@ export function useTerminalManager() {
         createTerminal(sessionId, cwd)
         return
       }
-      window.shellDeck.killTerminal(sessionId)
+
+      // Kill old PTY.
+      killPty(sessionId)
       entry.terminal.clear()
-      window.shellDeck.spawnTerminal(sessionId, cwd, entry.terminal.cols, entry.terminal.rows)
+
+      // Spawn new PTY and wire it up.
+      const pty = spawnPty(sessionId, cwd, entry.terminal.cols, entry.terminal.rows)
+
+      pty.onData((data) => {
+        entry.terminal.write(new Uint8Array(data))
+      })
+
+      pty.onExit(() => {
+        markSessionDeadRef.current(sessionId)
+      })
     },
     [createTerminal]
   )

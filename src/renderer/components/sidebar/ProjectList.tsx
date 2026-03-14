@@ -10,6 +10,7 @@ import { useTerminalManager } from '@/hooks/use-terminal'
 import { Button } from '@/components/ui/button'
 import { Plus, Folder, X, AlertTriangle, GripVertical } from 'lucide-react'
 import { useState, useRef } from 'react'
+import { pathExists } from '@/lib/api'
 
 interface ProjectListProps {
   terminalManager: ReturnType<typeof useTerminalManager>
@@ -23,7 +24,7 @@ export function ProjectList({ terminalManager }: ProjectListProps) {
   const dragNodeRef = useRef<HTMLDivElement | null>(null)
 
   const handleNewTerminal = async (projectId: string, projectPath: string) => {
-    const exists = await window.shellDeck.pathExists(projectPath)
+    const exists = await pathExists(projectPath)
     if (!exists) {
       setInvalidPaths((prev) => new Set(prev).add(projectId))
       return

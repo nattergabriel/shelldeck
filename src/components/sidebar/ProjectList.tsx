@@ -7,7 +7,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useTerminalContext } from '@/context/terminal-context'
 import { TerminalList } from './TerminalList'
 import { useTerminalManager } from '@/hooks/use-terminal'
-import { Plus, Folder, X, AlertTriangle } from 'lucide-react'
+import { Plus, Folder, X, AlertTriangle, ChevronRight } from 'lucide-react'
 import { pathExists } from '@/lib/api'
 
 interface ProjectListProps {
@@ -17,6 +17,16 @@ interface ProjectListProps {
 export function ProjectList({ terminalManager }: ProjectListProps) {
   const { state, createSession, removeProject, reorderProjects } = useTerminalContext()
   const [invalidPaths, setInvalidPaths] = useState<Set<string>>(new Set())
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+
+  const toggleCollapsed = (projectId: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      if (next.has(projectId)) next.delete(projectId)
+      else next.add(projectId)
+      return next
+    })
+  }
 
   // Drag state
   const [dragging, setDragging] = useState<number | null>(null)
@@ -38,21 +48,18 @@ export function ProjectList({ terminalManager }: ProjectListProps) {
     terminalManager.createTerminal(sessionId, projectPath)
   }
 
-  const findDropIndex = useCallback(
-    (clientY: number): number | null => {
-      let closest: { index: number; distance: number } | null = null
-      for (const [index, el] of itemRefs.current) {
-        const rect = el.getBoundingClientRect()
-        const mid = rect.top + rect.height / 2
-        const distance = Math.abs(clientY - mid)
-        if (!closest || distance < closest.distance) {
-          closest = { index: clientY < mid ? index : index + 1, distance }
-        }
+  const findDropIndex = useCallback((clientY: number): number | null => {
+    let closest: { index: number; distance: number } | null = null
+    for (const [index, el] of itemRefs.current) {
+      const rect = el.getBoundingClientRect()
+      const mid = rect.top + rect.height / 2
+      const distance = Math.abs(clientY - mid)
+      if (!closest || distance < closest.distance) {
+        closest = { index: clientY < mid ? index : index + 1, distance }
       }
-      return closest?.index ?? null
-    },
-    []
-  )
+    }
+    return closest?.index ?? null
+  }, [])
 
   useEffect(() => {
     if (dragging === null) return
@@ -86,6 +93,7 @@ export function ProjectList({ terminalManager }: ProjectListProps) {
       {state.projects.map((project, index) => {
         const sessions = state.sessions.filter((s) => s.projectId === project.id)
         const isInvalid = invalidPaths.has(project.id)
+        const isCollapsed = collapsed.has(project.id)
         const isDragging = dragging === index
         const showIndicatorBefore = dropTarget === index && dragging !== null && dragging !== index
 
@@ -111,7 +119,15 @@ export function ProjectList({ terminalManager }: ProjectListProps) {
                 setDragging(index)
               }}
             >
-              <div className="flex items-center gap-2 min-w-0">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <button
+                  className="h-6 w-6 -ml-0.5 flex items-center justify-center shrink-0 text-muted-foreground hover:text-foreground rounded"
+                  onClick={() => toggleCollapsed(project.id)}
+                >
+                  <ChevronRight
+                    className={`h-3.5 w-3.5 transition-transform ${isCollapsed ? '' : 'rotate-90'}`}
+                  />
+                </button>
                 <Folder className="h-4 w-4 text-muted-foreground shrink-0" />
                 <span className="text-sm text-foreground truncate">{project.name}</span>
               </div>
@@ -140,7 +156,7 @@ export function ProjectList({ terminalManager }: ProjectListProps) {
               </div>
             )}
 
-            <TerminalList sessions={sessions} terminalManager={terminalManager} />
+            {!isCollapsed && <TerminalList sessions={sessions} terminalManager={terminalManager} />}
 
             {/* Show indicator after the last item if dropping at the end */}
             {dropTarget === state.projects.length &&

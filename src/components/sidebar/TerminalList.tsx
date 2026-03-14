@@ -9,7 +9,7 @@ import { useTerminalContext } from '@/context/terminal-context'
 import { useTerminalManager } from '@/hooks/use-terminal'
 import { TerminalSession } from '@/types'
 import { cn } from '@/lib/utils'
-import { Terminal, X } from 'lucide-react'
+import { Terminal, X, Bell } from 'lucide-react'
 
 interface TerminalListProps {
   sessions: TerminalSession[]
@@ -60,6 +60,7 @@ export function TerminalList({ sessions, terminalManager }: TerminalListProps) {
       {sessions.map((session) => {
         const isActive = state.activeTerminalId === session.id
         const isEditing = editingId === session.id
+        const hasBell = state.bellSessionIds.has(session.id)
 
         return (
           <div
@@ -83,11 +84,10 @@ export function TerminalList({ sessions, terminalManager }: TerminalListProps) {
           >
             <div className="flex items-center gap-2 min-w-0">
               <Terminal
-                className={cn(
-                  'h-3.5 w-3.5 shrink-0',
-                  session.isRunning ? 'text-green-500' : ''
-                )}
+                className={cn('h-3.5 w-3.5 shrink-0', session.isRunning ? 'text-green-500' : '')}
               />
+
+              {hasBell && <Bell className="h-3 w-3 shrink-0 text-yellow-500" />}
 
               {isEditing ? (
                 <input

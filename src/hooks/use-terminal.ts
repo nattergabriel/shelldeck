@@ -29,9 +29,11 @@ export function useTerminalManager() {
   // Track the active PTY per session to ignore stale exit events after restart.
   const activePtyRef = useRef(new Map<string, PtyHandle>())
 
-  const { markSessionDead } = useTerminalContext()
+  const { markSessionDead, notifyBell } = useTerminalContext()
   const markSessionDeadRef = useRef(markSessionDead)
   markSessionDeadRef.current = markSessionDead
+  const notifyBellRef = useRef(notifyBell)
+  notifyBellRef.current = notifyBell
 
   /** Connect a PTY's output and exit events to an xterm instance. */
   const wirePty = useCallback((pty: PtyHandle, terminal: Terminal, sessionId: string) => {
@@ -40,7 +42,12 @@ export function useTerminalManager() {
     pty.onData((data) => {
       // Ignore data from a replaced PTY.
       if (activePtyRef.current.get(sessionId) !== pty) return
-      terminal.write(new Uint8Array(data))
+      const bytes = new Uint8Array(data)
+      terminal.write(bytes)
+      // Detect bell character (0x07) and notify.
+      if (bytes.includes(0x07)) {
+        notifyBellRef.current(sessionId)
+      }
     })
 
     pty.onExit(() => {

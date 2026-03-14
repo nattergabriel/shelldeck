@@ -24,12 +24,15 @@ interface TerminalState {
   projects: Project[]
   sessions: TerminalSession[]
   activeTerminalId: string | null
+  /** Session IDs with unread bell notifications. Not persisted. */
+  bellSessionIds: Set<string>
 }
 
 const initialState: TerminalState = {
   projects: [],
   sessions: [],
-  activeTerminalId: null
+  activeTerminalId: null,
+  bellSessionIds: new Set()
 }
 
 // --- Actions ---
@@ -45,6 +48,8 @@ type Action =
   | { type: 'SET_ACTIVE_TERMINAL'; sessionId: string | null }
   | { type: 'SET_SESSION_RUNNING'; sessionId: string; isRunning: boolean }
   | { type: 'RENAME_SESSION'; sessionId: string; name: string }
+  | { type: 'NOTIFY_BELL'; sessionId: string }
+  | { type: 'CLEAR_BELL'; sessionId: string }
 
 function reducer(state: TerminalState, action: Action): TerminalState {
   switch (action.type) {
@@ -113,6 +118,22 @@ function reducer(state: TerminalState, action: Action): TerminalState {
         )
       }
 
+    case 'NOTIFY_BELL': {
+      // Only notify if this session is not currently active.
+      if (state.activeTerminalId === action.sessionId) return state
+      if (state.bellSessionIds.has(action.sessionId)) return state
+      const next = new Set(state.bellSessionIds)
+      next.add(action.sessionId)
+      return { ...state, bellSessionIds: next }
+    }
+
+    case 'CLEAR_BELL': {
+      if (!state.bellSessionIds.has(action.sessionId)) return state
+      const next = new Set(state.bellSessionIds)
+      next.delete(action.sessionId)
+      return { ...state, bellSessionIds: next }
+    }
+
     default:
       return state
   }
@@ -133,6 +154,8 @@ interface TerminalContextValue {
   renameSession: (sessionId: string, name: string) => void
   /** Mark a restored (dead) session as running again. */
   reviveSession: (sessionId: string) => void
+  /** Notify that a terminal emitted a bell character. */
+  notifyBell: (sessionId: string) => void
 }
 
 const TerminalContext = createContext<TerminalContextValue | null>(null)
@@ -257,6 +280,9 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
   const setActiveTerminal = useCallback(
     (sessionId: string | null) => {
       dispatch({ type: 'SET_ACTIVE_TERMINAL', sessionId })
+      if (sessionId) {
+        dispatch({ type: 'CLEAR_BELL', sessionId })
+      }
     },
     [dispatch]
   )
@@ -282,6 +308,13 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
     [dispatch]
   )
 
+  const notifyBell = useCallback(
+    (sessionId: string) => {
+      dispatch({ type: 'NOTIFY_BELL', sessionId })
+    },
+    [dispatch]
+  )
+
   return (
     <TerminalContext.Provider
       value={{
@@ -295,7 +328,8 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
         setActiveTerminal,
         markSessionDead,
         renameSession,
-        reviveSession
+        reviveSession,
+        notifyBell
       }}
     >
       {children}

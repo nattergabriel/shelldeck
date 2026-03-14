@@ -10,7 +10,6 @@ import { useTerminalManager } from '@/hooks/use-terminal'
 import { TerminalSession } from '@/types'
 import { cn } from '@/lib/utils'
 import { Terminal, X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 
 interface TerminalListProps {
   sessions: TerminalSession[]
@@ -24,7 +23,6 @@ export function TerminalList({ sessions, terminalManager }: TerminalListProps) {
   const [editValue, setEditValue] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Focus the input when entering edit mode.
   useEffect(() => {
     if (editingId) {
       inputRef.current?.focus()
@@ -58,7 +56,7 @@ export function TerminalList({ sessions, terminalManager }: TerminalListProps) {
   }
 
   return (
-    <div className="ml-3 border-l border-border pl-2 space-y-0.5">
+    <div className="ml-6 space-y-0.5 mt-0.5 mb-1">
       {sessions.map((session) => {
         const isActive = state.activeTerminalId === session.id
         const isEditing = editingId === session.id
@@ -67,14 +65,13 @@ export function TerminalList({ sessions, terminalManager }: TerminalListProps) {
           <div
             key={session.id}
             className={cn(
-              'flex items-center justify-between px-2 py-1 rounded cursor-pointer group text-xs',
+              'flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer group text-sm transition-colors',
               isActive
-                ? 'bg-accent text-accent-foreground'
-                : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+                ? 'bg-accent text-foreground'
+                : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
             )}
             onClick={() => {
               setActiveTerminal(session.id)
-              // Auto-spawn a shell for restored sessions that aren't running yet.
               if (!session.isRunning) {
                 const project = state.projects.find((p) => p.id === session.projectId)
                 if (project) {
@@ -85,12 +82,12 @@ export function TerminalList({ sessions, terminalManager }: TerminalListProps) {
             }}
           >
             <div className="flex items-center gap-2 min-w-0">
-              <Terminal className="h-3 w-3 shrink-0" />
+              <Terminal className="h-3.5 w-3.5 shrink-0" />
 
               {isEditing ? (
                 <input
                   ref={inputRef}
-                  className="bg-background border border-border rounded px-1 py-0 text-xs text-foreground w-full outline-none focus:ring-1 focus:ring-accent"
+                  className="bg-background border border-border rounded px-2 py-0.5 text-sm text-foreground w-full outline-none"
                   value={editValue}
                   onChange={(e) => setEditValue(e.target.value)}
                   onBlur={commitRename}
@@ -110,22 +107,20 @@ export function TerminalList({ sessions, terminalManager }: TerminalListProps) {
               {!isEditing && (
                 <span
                   className={cn(
-                    'h-1.5 w-1.5 rounded-full shrink-0',
-                    session.isRunning ? 'bg-green-500' : 'bg-zinc-500'
+                    'h-2 w-2 rounded-full shrink-0',
+                    session.isRunning ? 'bg-green-500' : 'bg-muted-foreground/40'
                   )}
                 />
               )}
             </div>
             {!isEditing && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+              <button
+                className="h-6 w-6 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                 onClick={(e) => handleKill(session.id, e)}
                 title="Kill Terminal"
               >
-                <X className="h-3 w-3" />
-              </Button>
+                <X className="h-3.5 w-3.5" />
+              </button>
             )}
           </div>
         )

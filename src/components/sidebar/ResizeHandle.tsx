@@ -55,7 +55,7 @@ export function ResizeHandle({ sidebarWidth, onResize, onResizeEnd }: ResizeHand
 
   return (
     <div
-      className="w-1 cursor-col-resize hover:bg-accent/50 active:bg-accent transition-colors shrink-0 bg-background"
+      className="w-px cursor-col-resize hover:bg-accent transition-colors shrink-0 bg-border"
       onMouseDown={handleMouseDown}
       onDoubleClick={handleDoubleClick}
     />

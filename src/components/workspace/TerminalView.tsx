@@ -79,7 +79,7 @@ export function TerminalView({ sessionId, isVisible, terminalManager }: Terminal
   }
 
   return (
-    <div ref={containerRef} className="h-full w-full relative p-3" style={{ backgroundColor: '#19191d' }}>
+    <div ref={containerRef} className="h-full w-full relative bg-background pl-3 pt-2">
       {contextMenu && (
         <div
           className="fixed z-50 min-w-[120px] rounded-md border border-border bg-card py-1 shadow-lg"

@@ -4,7 +4,7 @@
  * Sidebar width is persisted to settings.
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Sidebar } from '@/components/sidebar/Sidebar'
 import { ResizeHandle } from '@/components/sidebar/ResizeHandle'
 import { Workspace } from '@/components/workspace/Workspace'
@@ -31,10 +31,13 @@ export function App() {
     })
   }, [])
 
-  // Persist sidebar width when the user finishes dragging.
+  // Keep a ref so the resize-end callback always sees the latest width.
+  const sidebarWidthRef = useRef(sidebarWidth)
+  sidebarWidthRef.current = sidebarWidth
+
   const handleResizeEnd = useCallback(() => {
-    saveSettings({ sidebarWidth })
-  }, [sidebarWidth])
+    saveSettings({ sidebarWidth: sidebarWidthRef.current })
+  }, [])
 
   return (
     <div className="h-screen flex flex-col">

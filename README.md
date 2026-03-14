@@ -1,7 +1,7 @@
 <h3 align="center">shelldeck</h3>
 
 <p align="center">
-  Multi-terminal dashboard for managing concurrent shell sessions by project.<br>
+  A lightweight multi-terminal dashboard for managing concurrent shell sessions by project.<br>
   Built for running multiple coding agents side by side.
 </p>
 

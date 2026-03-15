@@ -15,6 +15,7 @@
       "identifier": "fs:allow-exists",
       "allow": [{ "path": "**" }]
     },
-    "window-state:default"
+    "window-state:default",
+    "notification:default"
   ]
 }

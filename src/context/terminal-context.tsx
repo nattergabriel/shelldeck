@@ -18,6 +18,11 @@ import React, {
 import { Project, TerminalSession } from '@/types'
 import { getProjects, saveProjects, getSessions, saveSessions, pathExists } from '@/lib/api'
 import { useSettings } from '@/context/settings-context'
+import {
+  isPermissionGranted,
+  requestPermission,
+  sendNotification
+} from '@tauri-apps/plugin-notification'
 
 // --- State shape ---
 
@@ -310,10 +315,27 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
     [dispatch]
   )
 
+  const sessionsRef = useRef(state.sessions)
+  sessionsRef.current = state.sessions
+
   const notifyBell = useCallback(
-    (sessionId: string) => {
+    async (sessionId: string) => {
       if (!settings.bellNotificationsEnabled) return
       dispatch({ type: 'NOTIFY_BELL', sessionId })
+
+      // Send a system notification.
+      let granted = await isPermissionGranted()
+      if (!granted) {
+        const permission = await requestPermission()
+        granted = permission === 'granted'
+      }
+      if (granted) {
+        const session = sessionsRef.current.find((s) => s.id === sessionId)
+        sendNotification({
+          title: 'shelldeck',
+          body: `Bell in ${session?.name ?? 'terminal'}`
+        })
+      }
     },
     [dispatch, settings.bellNotificationsEnabled]
   )

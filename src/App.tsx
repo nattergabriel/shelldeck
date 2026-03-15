@@ -14,6 +14,7 @@ import { StatusBar } from '@/components/statusbar/StatusBar'
 import { useTerminalManager } from '@/hooks/use-terminal'
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts'
 import { useSettings } from '@/context/settings-context'
+import { useAutoUpdate } from '@/hooks/use-auto-update'
 import { saveSettings } from '@/lib/api'
 
 const DEFAULT_SIDEBAR_WIDTH = 256
@@ -26,6 +27,7 @@ export function App() {
   const [settingsCategory, setSettingsCategory] = useState<SettingsCategory>('notifications')
 
   useKeyboardShortcuts(terminalManager)
+  useAutoUpdate()
 
   // Sync sidebar width from settings on load.
   useEffect(() => {

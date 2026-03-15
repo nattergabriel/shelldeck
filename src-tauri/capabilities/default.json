@@ -16,6 +16,8 @@
       "allow": [{ "path": "**" }]
     },
     "window-state:default",
-    "notification:default"
+    "notification:default",
+    "updater:default",
+    "process:default"
   ]
 }

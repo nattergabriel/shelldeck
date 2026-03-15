@@ -106,6 +106,18 @@ export function useTerminalManager() {
       const pty = spawnPty(sessionId, cwd, 80, 24)
       wirePty(pty, terminal, sessionId)
 
+      // Fix for macOS WKWebView production builds: the delete key gets routed
+      // through IME composition and arrives as a space. Intercept it before
+      // xterm.js processes the (broken) input event and write directly to PTY.
+      terminal.attachCustomKeyEventHandler((event) => {
+        if (event.type === 'keydown' && event.key === 'Backspace') {
+          if (event.metaKey || event.ctrlKey) return true
+          writePty(sessionId, event.altKey ? '\x1b\x7f' : '\x7f')
+          return false
+        }
+        return true
+      })
+
       // Forward keystrokes from xterm to PTY.
       terminal.onData((data) => {
         writePty(sessionId, data)

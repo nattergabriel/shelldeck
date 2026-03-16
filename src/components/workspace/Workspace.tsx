@@ -60,7 +60,7 @@ export function Workspace({ terminalManager }: WorkspaceProps) {
     prevActiveId.current = state.activeTerminalId
   }, [state.activeTerminalId, state.sessions, state.projects, reviveSession, terminalManager])
 
-  if (state.sessions.length === 0) {
+  if (!state.activeTerminalId) {
     return <IdleScreen />
   }
 

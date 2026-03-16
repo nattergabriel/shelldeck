@@ -9,6 +9,7 @@ import { TerminalList } from './TerminalList'
 import { useTerminalManager } from '@/hooks/use-terminal'
 import { Plus, Folder, X, AlertTriangle, ChevronRight } from 'lucide-react'
 import { pathExists } from '@/lib/api'
+import { confirm } from '@tauri-apps/plugin-dialog'
 
 interface ProjectListProps {
   terminalManager: ReturnType<typeof useTerminalManager>
@@ -141,7 +142,13 @@ export function ProjectList({ terminalManager }: ProjectListProps) {
                 </button>
                 <button
                   className="h-6 w-6 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-secondary"
-                  onClick={() => removeProject(project.id)}
+                  onClick={async () => {
+                    const ok = await confirm(`Remove "${project.name}" and all its terminals?`, {
+                      title: 'Remove Project',
+                      kind: 'warning'
+                    })
+                    if (ok) removeProject(project.id)
+                  }}
                   title="Remove Project"
                 >
                   <X className="h-3.5 w-3.5" />

@@ -40,6 +40,11 @@ It works just as well for general terminal workflows, but the multi-agent use ca
 | Linux (Debian/Ubuntu) | [shelldeck_0.1.0_amd64.deb](https://github.com/etaaa/shelldeck/releases/latest/download/shelldeck_0.1.0_amd64.deb) |
 | Linux (AppImage) | [shelldeck_0.1.0_amd64.AppImage](https://github.com/etaaa/shelldeck/releases/latest/download/shelldeck_0.1.0_amd64.AppImage) |
 
+> **macOS users:** The app is not currently notarized with Apple, so macOS will block it from opening. After downloading, run this in your terminal to fix it:
+> ```bash
+> xattr -cr /Applications/shelldeck.app
+> ```
+
 ## Building from source
 
 Requires Node.js 20+ and Rust.

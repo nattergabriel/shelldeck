@@ -8,7 +8,7 @@
 <p align="center">
   <a href="https://github.com/etaaa/shelldeck/actions/workflows/ci.yml"><img src="https://github.com/etaaa/shelldeck/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <a href="https://github.com/etaaa/shelldeck/blob/main/LICENSE"><img src="https://img.shields.io/github/license/etaaa/shelldeck" alt="License" /></a>
-  <!-- <a href="https://github.com/etaaa/shelldeck/releases"><img src="https://img.shields.io/github/v/release/etaaa/shelldeck?include_prereleases" alt="Release" /></a> -->
+  <a href="https://github.com/etaaa/shelldeck/releases"><img src="https://img.shields.io/github/v/release/etaaa/shelldeck?include_prereleases" alt="Release" /></a>
 </p>
 
 ---
@@ -23,15 +23,16 @@ It works just as well for general terminal workflows, but the multi-agent use ca
 
 ## Features
 
-- Group terminals by project folder
-- Persistent layout across restarts
-- Switch terminals without losing output
-- Keyboard shortcuts and terminal search
+- Group terminals by project: each opens in the right directory
+- Run multiple coding agents (Claude Code, Codex, Gemini CLI) side by side
+- Switch between terminals without losing output
+- System resource monitoring (CPU, memory)
+- Keyboard shortcuts and in-terminal search
 - Cross-platform (macOS, Linux, Windows)
 
 ## Getting started
 
-Requires Node.js 20+.
+Requires Node.js 20+ and Rust.
 
 ```bash
 git clone https://github.com/etaaa/shelldeck.git

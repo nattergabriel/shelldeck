@@ -8,7 +8,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
 import { platform } from '@tauri-apps/plugin-os'
-import type { Project, TerminalSession, SystemStats, AppSettings } from '@/types'
+import type { Project, TerminalSession, AppSettings } from '@/types'
 
 // --- PTY Management ---
 
@@ -167,10 +167,4 @@ export async function saveSettings(settings: AppSettings): Promise<void> {
 
 export async function pathExists(path: string): Promise<boolean> {
   return await invoke<boolean>('path_exists', { path })
-}
-
-// --- System Stats ---
-
-export async function getSystemStats(): Promise<SystemStats> {
-  return await invoke<SystemStats>('get_system_stats')
 }

@@ -1,9 +1,6 @@
 mod menu;
 mod pty;
 mod store;
-mod system_monitor;
-
-use system_monitor::SystemMonitor;
 
 #[tauri::command]
 fn path_exists(path: String) -> bool {
@@ -34,7 +31,6 @@ pub fn run() {
             menu::setup(app)?;
             Ok(())
         })
-        .manage(SystemMonitor::new())
         .manage(pty::PtyState::default())
         .invoke_handler(tauri::generate_handler![
             store::get_projects,
@@ -43,7 +39,6 @@ pub fn run() {
             store::save_sessions,
             store::get_settings,
             store::save_settings,
-            system_monitor::get_system_stats,
             path_exists,
             pty::pty_spawn,
             pty::pty_write,

@@ -20,7 +20,6 @@ shelldeck is a Tauri v2 app with a React frontend and Rust backend:
 **Rust backend** (`src-tauri/src/`) — Modular backend split into focused files:
 - `pty.rs` — PTY management using `portable-pty`. Async commands via Tokio for spawn, read, write, resize, kill, and cleanup.
 - `store.rs` — JSON file persistence for projects, sessions, and settings in the Tauri app data dir.
-- `system_monitor.rs` — System stats (CPU, memory) via `sysinfo` crate.
 - `menu.rs` — Native app menu with check-for-updates support.
 - `lib.rs` — Tauri setup, plugin registration, and command handler.
 
@@ -31,18 +30,16 @@ shelldeck is a Tauri v2 app with a React frontend and Rust backend:
 - `hooks/use-terminal.ts` — Terminal lifecycle: xterm.js instances, PTY attach/detach, fit, search, bell detection. Consumed by `TerminalManagerProvider`.
 - `hooks/use-inline-rename.ts` — Reusable inline rename behavior (shared by ProjectList and TerminalList).
 - `hooks/use-drag-reorder.ts` — Pointer-based drag-to-reorder for vertical lists (used by ProjectList).
-- `hooks/use-system-stats.ts` — Polls backend for CPU/memory stats.
 - `hooks/use-keyboard-shortcuts.ts` — Global shortcuts (Cmd+T, Cmd+W, Cmd+Shift+[/], Cmd+1-9).
 - `hooks/use-auto-update.ts` — Checks for updates on launch.
 - `components/sidebar/` — Project list, terminal list, resize handle.
 - `components/workspace/` — Terminal view, header, search bar, idle screen.
 - `components/settings/` — Settings panel with sidebar navigation.
-- `components/statusbar/` — System stats display.
 - `components/ui/` — shadcn/ui primitives (button, switch, context-menu).
 
-**Types** (`src/types.ts`) — Single source of truth for shared data types (Project, TerminalSession, SystemStats, AppSettings, SettingsCategory, TerminalManager).
+**Types** (`src/types.ts`) — Single source of truth for shared data types (Project, TerminalSession, AppSettings, SettingsCategory, TerminalManager).
 
-**API bridge** (`src/lib/api.ts`) — Centralizes all Tauri communication. All operations (PTY, store, dialog, stats, fs) go through `invoke()` commands to the Rust backend.
+**API bridge** (`src/lib/api.ts`) — Centralizes all Tauri communication. All operations (PTY, store, dialog, fs) go through `invoke()` commands to the Rust backend.
 
 ## Adding a New Tauri Command
 

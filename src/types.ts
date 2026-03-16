@@ -17,14 +17,6 @@ export interface TerminalSession {
   isRunning: boolean
 }
 
-/** System resource usage stats. */
-export interface SystemStats {
-  cpuUsage: number // percentage 0-100
-  memoryUsage: number // percentage 0-100
-  memoryUsedGB: number
-  memoryTotalGB: number
-}
-
 /** Persistent app settings. */
 export interface AppSettings {
   sidebarWidth: number

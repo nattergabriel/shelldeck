@@ -3,19 +3,19 @@
  *
  * Uses React Context + useReducer for predictable state updates.
  * All terminal and project mutations go through dispatched actions.
- * Projects are persisted to disk via Tauri commands.
+ * Projects and sessions are persisted to disk via Tauri commands.
  */
 
-import React, {
+import {
   createContext,
   useContext,
   useReducer,
   useCallback,
   useEffect,
   useRef,
-  ReactNode
+  type ReactNode
 } from 'react'
-import { Project, TerminalSession } from '@/types'
+import type { Project, TerminalSession } from '@/types'
 import { getProjects, saveProjects, getSessions, saveSessions, pathExists } from '@/lib/api'
 import { useSettings } from '@/context/settings-context'
 import {
@@ -137,7 +137,6 @@ function reducer(state: TerminalState, action: Action): TerminalState {
       }
 
     case 'NOTIFY_BELL': {
-      // Only notify if this session is not currently active.
       if (state.activeTerminalId === action.sessionId) return state
       if (state.bellSessionIds.has(action.sessionId)) return state
       const next = new Set(state.bellSessionIds)
@@ -161,7 +160,6 @@ function reducer(state: TerminalState, action: Action): TerminalState {
 
 interface TerminalContextValue {
   state: TerminalState
-  dispatch: React.Dispatch<Action>
   addProject: (name: string, path: string) => void
   removeProject: (projectId: string) => void
   reorderProjects: (fromIndex: number, toIndex: number) => void
@@ -171,9 +169,7 @@ interface TerminalContextValue {
   markSessionDead: (sessionId: string) => void
   renameSession: (sessionId: string, name: string) => void
   renameProject: (projectId: string, name: string) => void
-  /** Mark a restored (dead) session as running again. */
   reviveSession: (sessionId: string) => void
-  /** Notify that a terminal emitted a bell character. */
   notifyBell: (sessionId: string) => void
 }
 
@@ -184,8 +180,6 @@ let sessionCounter = 0
 export function TerminalProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState)
   const { settings } = useSettings()
-  const projectsRef = useRef(state.projects)
-  projectsRef.current = state.projects
 
   // Load persisted projects and sessions on mount.
   useEffect(() => {
@@ -204,7 +198,6 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
       if (valid.length > 0) {
         dispatch({ type: 'SET_PROJECTS', projects: valid })
       }
-      // Persist the cleaned list if any projects were removed.
       if (valid.length !== projects.length) {
         saveProjects(valid)
       }
@@ -248,92 +241,57 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
     saveSessions(state.sessions)
   }, [state.sessions])
 
-  const addProject = useCallback(
-    (name: string, path: string) => {
-      const project: Project = {
-        id: `project-${Date.now()}`,
-        name,
-        path
-      }
-      dispatch({ type: 'ADD_PROJECT', project })
-    },
-    [dispatch]
-  )
+  const addProject = useCallback((name: string, path: string) => {
+    const project: Project = { id: `project-${Date.now()}`, name, path }
+    dispatch({ type: 'ADD_PROJECT', project })
+  }, [])
 
-  const removeProject = useCallback(
-    (projectId: string) => {
-      dispatch({ type: 'REMOVE_PROJECT', projectId })
-    },
-    [dispatch]
-  )
+  const removeProject = useCallback((projectId: string) => {
+    dispatch({ type: 'REMOVE_PROJECT', projectId })
+  }, [])
 
-  const reorderProjects = useCallback(
-    (fromIndex: number, toIndex: number) => {
-      dispatch({ type: 'REORDER_PROJECTS', fromIndex, toIndex })
-    },
-    [dispatch]
-  )
+  const reorderProjects = useCallback((fromIndex: number, toIndex: number) => {
+    dispatch({ type: 'REORDER_PROJECTS', fromIndex, toIndex })
+  }, [])
 
-  /** Creates a new terminal session and returns its ID (so the caller can spawn the PTY). */
-  const createSession = useCallback(
-    (projectId: string): string => {
-      sessionCounter++
-      const session: TerminalSession = {
-        id: `term-${Date.now()}-${sessionCounter}`,
-        projectId,
-        name: `Terminal ${sessionCounter}`,
-        isRunning: true
-      }
-      dispatch({ type: 'ADD_SESSION', session })
-      return session.id
-    },
-    [dispatch]
-  )
+  const createSession = useCallback((projectId: string): string => {
+    sessionCounter++
+    const session: TerminalSession = {
+      id: `term-${Date.now()}-${sessionCounter}`,
+      projectId,
+      name: `Terminal ${sessionCounter}`,
+      isRunning: true
+    }
+    dispatch({ type: 'ADD_SESSION', session })
+    return session.id
+  }, [])
 
-  const removeSession = useCallback(
-    (sessionId: string) => {
-      dispatch({ type: 'REMOVE_SESSION', sessionId })
-    },
-    [dispatch]
-  )
+  const removeSession = useCallback((sessionId: string) => {
+    dispatch({ type: 'REMOVE_SESSION', sessionId })
+  }, [])
 
-  const setActiveTerminal = useCallback(
-    (sessionId: string | null) => {
-      dispatch({ type: 'SET_ACTIVE_TERMINAL', sessionId })
-      if (sessionId) {
-        dispatch({ type: 'CLEAR_BELL', sessionId })
-      }
-    },
-    [dispatch]
-  )
+  const setActiveTerminal = useCallback((sessionId: string | null) => {
+    dispatch({ type: 'SET_ACTIVE_TERMINAL', sessionId })
+    if (sessionId) {
+      dispatch({ type: 'CLEAR_BELL', sessionId })
+    }
+  }, [])
 
-  const markSessionDead = useCallback(
-    (sessionId: string) => {
-      dispatch({ type: 'SET_SESSION_RUNNING', sessionId, isRunning: false })
-    },
-    [dispatch]
-  )
+  const markSessionDead = useCallback((sessionId: string) => {
+    dispatch({ type: 'SET_SESSION_RUNNING', sessionId, isRunning: false })
+  }, [])
 
-  const renameSession = useCallback(
-    (sessionId: string, name: string) => {
-      dispatch({ type: 'RENAME_SESSION', sessionId, name })
-    },
-    [dispatch]
-  )
+  const renameSession = useCallback((sessionId: string, name: string) => {
+    dispatch({ type: 'RENAME_SESSION', sessionId, name })
+  }, [])
 
-  const renameProject = useCallback(
-    (projectId: string, name: string) => {
-      dispatch({ type: 'RENAME_PROJECT', projectId, name })
-    },
-    [dispatch]
-  )
+  const renameProject = useCallback((projectId: string, name: string) => {
+    dispatch({ type: 'RENAME_PROJECT', projectId, name })
+  }, [])
 
-  const reviveSession = useCallback(
-    (sessionId: string) => {
-      dispatch({ type: 'SET_SESSION_RUNNING', sessionId, isRunning: true })
-    },
-    [dispatch]
-  )
+  const reviveSession = useCallback((sessionId: string) => {
+    dispatch({ type: 'SET_SESSION_RUNNING', sessionId, isRunning: true })
+  }, [])
 
   const sessionsRef = useRef(state.sessions)
   sessionsRef.current = state.sessions
@@ -343,7 +301,6 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
       if (!settings.bellNotificationsEnabled) return
       dispatch({ type: 'NOTIFY_BELL', sessionId })
 
-      // Send a system notification.
       let granted = await isPermissionGranted()
       if (!granted) {
         const permission = await requestPermission()
@@ -357,14 +314,13 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
         })
       }
     },
-    [dispatch, settings.bellNotificationsEnabled]
+    [settings.bellNotificationsEnabled]
   )
 
   return (
     <TerminalContext.Provider
       value={{
         state,
-        dispatch,
         addProject,
         removeProject,
         reorderProjects,

@@ -4,17 +4,17 @@
  */
 
 import { useState, useRef, useEffect } from 'react'
-import { useTerminalManager } from '@/hooks/use-terminal'
+import { useTerminalManager } from '@/context/terminal-manager'
 import { Button } from '@/components/ui/button'
 import { ChevronUp, ChevronDown, X } from 'lucide-react'
 
 interface SearchBarProps {
   sessionId: string
-  terminalManager: ReturnType<typeof useTerminalManager>
   onClose: () => void
 }
 
-export function SearchBar({ sessionId, terminalManager, onClose }: SearchBarProps) {
+export function SearchBar({ sessionId, onClose }: SearchBarProps) {
+  const terminalManager = useTerminalManager()
   const [query, setQuery] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 

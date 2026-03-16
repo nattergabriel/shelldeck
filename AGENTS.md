@@ -27,7 +27,10 @@ shelldeck is a Tauri v2 app with a React frontend and Rust backend:
 **Frontend** (`src/`) — React app with xterm.js:
 - `context/terminal-context.tsx` — Projects and sessions state via useReducer.
 - `context/settings-context.tsx` — App settings (sidebar width, notifications) with auto-persistence.
-- `hooks/use-terminal.ts` — Terminal lifecycle: xterm.js instances, PTY attach/detach, fit, search, bell detection.
+- `context/terminal-manager.tsx` — Provides xterm.js terminal manager globally (wraps the hook in a context to avoid prop drilling).
+- `hooks/use-terminal.ts` — Terminal lifecycle: xterm.js instances, PTY attach/detach, fit, search, bell detection. Consumed by `TerminalManagerProvider`.
+- `hooks/use-inline-rename.ts` — Reusable inline rename behavior (shared by ProjectList and TerminalList).
+- `hooks/use-drag-reorder.ts` — Pointer-based drag-to-reorder for vertical lists (used by ProjectList).
 - `hooks/use-system-stats.ts` — Polls backend for CPU/memory stats.
 - `hooks/use-keyboard-shortcuts.ts` — Global shortcuts (Cmd+T, Cmd+W, Cmd+Shift+[/], Cmd+1-9).
 - `hooks/use-auto-update.ts` — Checks for updates on launch.
@@ -35,9 +38,9 @@ shelldeck is a Tauri v2 app with a React frontend and Rust backend:
 - `components/workspace/` — Terminal view, header, search bar, idle screen.
 - `components/settings/` — Settings panel with sidebar navigation.
 - `components/statusbar/` — System stats display.
-- `components/ui/` — shadcn/ui primitives (button, switch).
+- `components/ui/` — shadcn/ui primitives (button, switch, context-menu).
 
-**Types** (`src/types.ts`) — Single source of truth for shared data types (Project, TerminalSession, SystemStats).
+**Types** (`src/types.ts`) — Single source of truth for shared data types (Project, TerminalSession, SystemStats, AppSettings, SettingsCategory, TerminalManager).
 
 **API bridge** (`src/lib/api.ts`) — Centralizes all Tauri communication. All operations (PTY, store, dialog, stats, fs) go through `invoke()` commands to the Rust backend.
 
@@ -50,7 +53,7 @@ shelldeck is a Tauri v2 app with a React frontend and Rust backend:
 
 ## Terminal Lifecycle
 
-Terminal instances are managed by `useTerminalManager` (`src/hooks/use-terminal.ts`), which keeps a persistent `Map<sessionId, {terminal, fitAddon}>` in a ref. All xterm.js containers are rendered simultaneously in absolute-positioned divs — only the active one is visible (`display: block` vs `none`). This preserves terminal output when switching sessions.
+Terminal instances are managed by `TerminalManagerProvider` (`src/context/terminal-manager.tsx`), which wraps the `useTerminalManager` hook (`src/hooks/use-terminal.ts`) in a React context. Components access it via `useTerminalManager()` from the context — no prop drilling. The hook keeps a persistent `Map<sessionId, {terminal, fitAddon}>` in a ref. All xterm.js containers are rendered simultaneously in absolute-positioned divs — only the active one is visible (`display: block` vs `none`). This preserves terminal output when switching sessions.
 
 PTY processes are spawned via `invoke('pty_spawn')` to the Rust backend, which uses `portable-pty` under the hood. Data flows between the frontend and Rust via `invoke('pty_read')` / `invoke('pty_write')` calls.
 

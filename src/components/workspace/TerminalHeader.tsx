@@ -1,25 +1,25 @@
 /**
- * TerminalHeader — displays the terminal name, status, and action buttons
- * (Restart, Kill) above the active terminal view.
+ * TerminalHeader — displays the terminal name, status, and restart button
+ * above the active terminal view.
  */
 
 import { useTerminalContext } from '@/context/terminal-context'
-import { useTerminalManager } from '@/hooks/use-terminal'
-import { TerminalSession } from '@/types'
+import { useTerminalManager } from '@/context/terminal-manager'
+import type { TerminalSession } from '@/types'
 import { cn } from '@/lib/utils'
 import { RotateCcw } from 'lucide-react'
 
 interface TerminalHeaderProps {
   session: TerminalSession
   projectPath: string
-  terminalManager: ReturnType<typeof useTerminalManager>
 }
 
-export function TerminalHeader({ session, projectPath, terminalManager }: TerminalHeaderProps) {
-  const { dispatch } = useTerminalContext()
+export function TerminalHeader({ session, projectPath }: TerminalHeaderProps) {
+  const { reviveSession } = useTerminalContext()
+  const terminalManager = useTerminalManager()
 
   const handleRestart = () => {
-    dispatch({ type: 'SET_SESSION_RUNNING', sessionId: session.id, isRunning: true })
+    reviveSession(session.id)
     terminalManager.restartTerminal(session.id, projectPath)
   }
 

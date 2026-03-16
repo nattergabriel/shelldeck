@@ -11,10 +11,11 @@
 
 import { useEffect } from 'react'
 import { useTerminalContext } from '@/context/terminal-context'
-import { useTerminalManager } from './use-terminal'
+import { useTerminalManager } from '@/context/terminal-manager'
 
-export function useKeyboardShortcuts(terminalManager: ReturnType<typeof useTerminalManager>) {
+export function useKeyboardShortcuts() {
   const { state, createSession, removeSession, setActiveTerminal } = useTerminalContext()
+  const terminalManager = useTerminalManager()
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

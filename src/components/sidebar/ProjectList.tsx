@@ -4,68 +4,36 @@
  * Double-click a project name to rename. Right-click for a context menu.
  */
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState } from 'react'
 import { useTerminalContext } from '@/context/terminal-context'
+import { useTerminalManager } from '@/context/terminal-manager'
+import { useInlineRename } from '@/hooks/use-inline-rename'
+import { useDragReorder } from '@/hooks/use-drag-reorder'
 import { TerminalList } from './TerminalList'
-import { useTerminalManager } from '@/hooks/use-terminal'
+import { ContextMenu, ContextMenuItem, ContextMenuSeparator } from '@/components/ui/context-menu'
 import { Plus, Folder, AlertTriangle, ChevronRight } from 'lucide-react'
 import { pathExists } from '@/lib/api'
 import { confirm } from '@tauri-apps/plugin-dialog'
 import { open } from '@tauri-apps/plugin-shell'
 
-interface ProjectListProps {
-  terminalManager: ReturnType<typeof useTerminalManager>
-}
-
-export function ProjectList({ terminalManager }: ProjectListProps) {
+export function ProjectList() {
   const { state, createSession, removeProject, reorderProjects, renameProject } =
     useTerminalContext()
+  const terminalManager = useTerminalManager()
+  const rename = useInlineRename(renameProject)
+  const drag = useDragReorder(reorderProjects)
+
   const [invalidPaths, setInvalidPaths] = useState<Set<string>>(new Set())
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
-
-  // Inline rename state
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editValue, setEditValue] = useState('')
-  const renameInputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    if (editingId) {
-      renameInputRef.current?.focus()
-      renameInputRef.current?.select()
-    }
-  }, [editingId])
-
-  const startRename = (projectId: string, currentName: string) => {
-    setEditingId(projectId)
-    setEditValue(currentName)
-  }
-
-  const commitRename = () => {
-    if (editingId && editValue.trim()) {
-      renameProject(editingId, editValue.trim())
-    }
-    setEditingId(null)
-  }
-
-  const cancelRename = () => {
-    setEditingId(null)
-  }
-
-  // Context menu state
   const [contextMenu, setContextMenu] = useState<{
     x: number
     y: number
     projectId: string
-    projectName: string
-    projectPath: string
   } | null>(null)
 
-  useEffect(() => {
-    if (!contextMenu) return
-    const close = () => setContextMenu(null)
-    window.addEventListener('click', close)
-    return () => window.removeEventListener('click', close)
-  }, [contextMenu])
+  const contextProject = contextMenu
+    ? state.projects.find((p) => p.id === contextMenu.projectId)
+    : null
 
   const toggleCollapsed = (projectId: string) => {
     setCollapsed((prev) => {
@@ -75,11 +43,6 @@ export function ProjectList({ terminalManager }: ProjectListProps) {
       return next
     })
   }
-
-  // Drag state
-  const [dragging, setDragging] = useState<number | null>(null)
-  const [dropTarget, setDropTarget] = useState<number | null>(null)
-  const itemRefs = useRef<Map<number, HTMLDivElement>>(new Map())
 
   const handleNewTerminal = async (projectId: string, projectPath: string) => {
     const exists = await pathExists(projectPath)
@@ -104,64 +67,19 @@ export function ProjectList({ terminalManager }: ProjectListProps) {
     if (ok) removeProject(projectId)
   }
 
-  const findDropIndex = useCallback((clientY: number): number | null => {
-    let closest: { index: number; distance: number } | null = null
-    for (const [index, el] of itemRefs.current) {
-      const rect = el.getBoundingClientRect()
-      const mid = rect.top + rect.height / 2
-      const distance = Math.abs(clientY - mid)
-      if (!closest || distance < closest.distance) {
-        closest = { index: clientY < mid ? index : index + 1, distance }
-      }
-    }
-    return closest?.index ?? null
-  }, [])
-
-  useEffect(() => {
-    if (dragging === null) return
-
-    const onPointerMove = (e: PointerEvent) => {
-      const target = findDropIndex(e.clientY)
-      setDropTarget(target)
-    }
-
-    const onPointerUp = () => {
-      if (dragging !== null && dropTarget !== null) {
-        const to = dropTarget > dragging ? dropTarget - 1 : dropTarget
-        if (to !== dragging) {
-          reorderProjects(dragging, to)
-        }
-      }
-      setDragging(null)
-      setDropTarget(null)
-    }
-
-    window.addEventListener('pointermove', onPointerMove)
-    window.addEventListener('pointerup', onPointerUp)
-    return () => {
-      window.removeEventListener('pointermove', onPointerMove)
-      window.removeEventListener('pointerup', onPointerUp)
-    }
-  }, [dragging, dropTarget, findDropIndex, reorderProjects])
-
   return (
     <div className="space-y-0.5">
       {state.projects.map((project, index) => {
         const sessions = state.sessions.filter((s) => s.projectId === project.id)
         const isInvalid = invalidPaths.has(project.id)
         const isCollapsed = collapsed.has(project.id)
-        const isDragging = dragging === index
-        const showIndicatorBefore = dropTarget === index && dragging !== null && dragging !== index
-        const isEditing = editingId === project.id
+        const isDragging = drag.dragging === index
+        const showIndicatorBefore =
+          drag.dropTarget === index && drag.dragging !== null && drag.dragging !== index
+        const isEditing = rename.editingId === project.id
 
         return (
-          <div
-            key={project.id}
-            ref={(el) => {
-              if (el) itemRefs.current.set(index, el)
-              else itemRefs.current.delete(index)
-            }}
-          >
+          <div key={project.id} ref={(el) => drag.registerRef(index, el)}>
             {showIndicatorBefore && (
               <div className="h-0.5 bg-foreground/30 rounded-full mx-2 mb-0.5" />
             )}
@@ -171,19 +89,13 @@ export function ProjectList({ terminalManager }: ProjectListProps) {
               className={`flex items-center justify-between px-2 py-1.5 rounded-md group hover:bg-accent transition-colors cursor-grab active:cursor-grabbing ${isDragging ? 'opacity-40' : ''}`}
               onPointerDown={(e) => {
                 if (e.button !== 0 || (e.target as HTMLElement).closest('button, input')) return
-                if (editingId) return
+                if (rename.editingId) return
                 e.preventDefault()
-                setDragging(index)
+                drag.startDrag(index)
               }}
               onContextMenu={(e) => {
                 e.preventDefault()
-                setContextMenu({
-                  x: e.clientX,
-                  y: e.clientY,
-                  projectId: project.id,
-                  projectName: project.name,
-                  projectPath: project.path
-                })
+                setContextMenu({ x: e.clientX, y: e.clientY, projectId: project.id })
               }}
             >
               <div className="flex items-center gap-1.5 min-w-0">
@@ -198,21 +110,13 @@ export function ProjectList({ terminalManager }: ProjectListProps) {
                 <Folder className="h-4 w-4 text-muted-foreground shrink-0" />
                 {isEditing ? (
                   <input
-                    ref={renameInputRef}
+                    {...rename.inputProps}
                     className="bg-background border border-border rounded px-2 py-0.5 text-sm text-foreground w-full outline-none"
-                    value={editValue}
-                    onChange={(e) => setEditValue(e.target.value)}
-                    onBlur={commitRename}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') commitRename()
-                      if (e.key === 'Escape') cancelRename()
-                    }}
-                    onClick={(e) => e.stopPropagation()}
                   />
                 ) : (
                   <span
                     className="text-sm text-foreground truncate"
-                    onDoubleClick={() => startRename(project.id, project.name)}
+                    onDoubleClick={() => rename.start(project.id, project.name)}
                   >
                     {project.name}
                   </span>
@@ -222,7 +126,7 @@ export function ProjectList({ terminalManager }: ProjectListProps) {
                 <button
                   className="h-6 w-6 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground hover:bg-secondary"
                   onClick={() => handleNewTerminal(project.id, project.path)}
-                  title="New Terminal (⌘T)"
+                  title="New Terminal"
                 >
                   <Plus className="h-3.5 w-3.5" />
                 </button>
@@ -236,13 +140,13 @@ export function ProjectList({ terminalManager }: ProjectListProps) {
               </div>
             )}
 
-            {!isCollapsed && <TerminalList sessions={sessions} terminalManager={terminalManager} />}
+            {!isCollapsed && <TerminalList sessions={sessions} />}
 
             {/* Show indicator after the last item if dropping at the end */}
-            {dropTarget === state.projects.length &&
+            {drag.dropTarget === state.projects.length &&
               index === state.projects.length - 1 &&
-              dragging !== null &&
-              dragging !== state.projects.length - 1 && (
+              drag.dragging !== null &&
+              drag.dragging !== state.projects.length - 1 && (
                 <div className="h-0.5 bg-foreground/30 rounded-full mx-2 mt-0.5" />
               )}
           </div>
@@ -250,49 +154,43 @@ export function ProjectList({ terminalManager }: ProjectListProps) {
       })}
 
       {/* Context menu */}
-      {contextMenu && (
-        <div
-          className="fixed z-50 min-w-[160px] rounded-md border border-border bg-card py-1 shadow-lg"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
-        >
-          <button
-            className="w-full px-3 py-1.5 text-left text-xs text-foreground hover:bg-accent"
+      {contextMenu && contextProject && (
+        <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)}>
+          <ContextMenuItem
             onClick={() => {
-              startRename(contextMenu.projectId, contextMenu.projectName)
+              rename.start(contextProject.id, contextProject.name)
               setContextMenu(null)
             }}
           >
             Rename
-          </button>
-          <button
-            className="w-full px-3 py-1.5 text-left text-xs text-foreground hover:bg-accent"
+          </ContextMenuItem>
+          <ContextMenuItem
             onClick={() => {
-              handleNewTerminal(contextMenu.projectId, contextMenu.projectPath)
+              handleNewTerminal(contextProject.id, contextProject.path)
               setContextMenu(null)
             }}
           >
             New Terminal
-          </button>
-          <button
-            className="w-full px-3 py-1.5 text-left text-xs text-foreground hover:bg-accent"
+          </ContextMenuItem>
+          <ContextMenuItem
             onClick={() => {
-              open(contextMenu.projectPath)
+              open(contextProject.path)
               setContextMenu(null)
             }}
           >
             Open in Finder
-          </button>
-          <div className="border-t border-border my-1" />
-          <button
-            className="w-full px-3 py-1.5 text-left text-xs text-foreground hover:bg-accent hover:text-destructive"
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem
+            destructive
             onClick={() => {
-              handleRemove(contextMenu.projectId, contextMenu.projectName)
+              handleRemove(contextProject.id, contextProject.name)
               setContextMenu(null)
             }}
           >
             Remove
-          </button>
-        </div>
+          </ContextMenuItem>
+        </ContextMenu>
       )}
     </div>
   )

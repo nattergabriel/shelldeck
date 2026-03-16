@@ -8,7 +8,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
 import { platform } from '@tauri-apps/plugin-os'
-import type { Project, TerminalSession, SystemStats } from '@/types'
+import type { Project, TerminalSession, SystemStats, AppSettings } from '@/types'
 
 // --- PTY Management ---
 
@@ -155,11 +155,11 @@ export async function saveSessions(sessions: TerminalSession[]): Promise<void> {
   await invoke('save_sessions', { sessions })
 }
 
-export async function getSettings(): Promise<Record<string, unknown>> {
-  return await invoke<Record<string, unknown>>('get_settings')
+export async function getSettings(): Promise<Partial<AppSettings>> {
+  return await invoke<Partial<AppSettings>>('get_settings')
 }
 
-export async function saveSettings(settings: Record<string, unknown>): Promise<void> {
+export async function saveSettings(settings: AppSettings): Promise<void> {
   await invoke('save_settings', { settings })
 }
 

@@ -5,23 +5,17 @@
  * Uses the existing getSettings/saveSettings Tauri commands.
  */
 
-import React, {
+import {
   createContext,
   useContext,
   useState,
   useEffect,
   useCallback,
   useRef,
-  ReactNode
+  type ReactNode
 } from 'react'
 import { getSettings, saveSettings } from '@/lib/api'
-
-export interface AppSettings {
-  sidebarWidth: number
-  bellNotificationsEnabled: boolean
-  fontSize: number
-  scrollback: number
-}
+import type { AppSettings } from '@/types'
 
 export const defaultSettings: AppSettings = {
   sidebarWidth: 256,
@@ -44,10 +38,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   // Load settings from disk on mount.
   useEffect(() => {
     getSettings().then((raw) => {
-      setSettings((prev) => ({
-        ...prev,
-        ...raw
-      }))
+      setSettings((prev) => ({ ...prev, ...raw }))
       loaded.current = true
     })
   }, [])
@@ -55,12 +46,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   // Auto-save when settings change (skip until initial load completes).
   useEffect(() => {
     if (!loaded.current) return
-    saveSettings(settings as unknown as Record<string, unknown>)
+    saveSettings(settings)
   }, [settings])
 
   const updateSetting = useCallback(
     <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
-      setSettings((prev) => ({ ...prev, [key]: value }))
+      setSettings((prev) => (prev[key] === value ? prev : { ...prev, [key]: value }))
     },
     []
   )

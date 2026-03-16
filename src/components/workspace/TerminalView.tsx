@@ -2,27 +2,28 @@
  * TerminalView — wraps a single xterm.js terminal canvas.
  *
  * Attaches the terminal to the DOM on mount and handles resize events.
- * The xterm instance itself is managed by useTerminalManager (not local state),
+ * The xterm instance itself is managed by TerminalManagerContext (not local state),
  * so it persists across show/hide cycles.
  *
  * Right-click shows a custom context menu.
  */
 
 import { useRef, useEffect, useState } from 'react'
-import { useTerminalManager } from '@/hooks/use-terminal'
+import { useTerminalManager } from '@/context/terminal-manager'
+import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu'
 import '@xterm/xterm/css/xterm.css'
 
 interface TerminalViewProps {
   sessionId: string
   isVisible: boolean
-  terminalManager: ReturnType<typeof useTerminalManager>
 }
 
-export function TerminalView({ sessionId, isVisible, terminalManager }: TerminalViewProps) {
+export function TerminalView({ sessionId, isVisible }: TerminalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const terminalManager = useTerminalManager()
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
 
-  // Use a ref for terminalManager so effects don't re-run when it changes.
+  // Use a ref so effects don't re-run when the manager reference changes.
   const managerRef = useRef(terminalManager)
   managerRef.current = terminalManager
 
@@ -65,33 +66,19 @@ export function TerminalView({ sessionId, isVisible, terminalManager }: Terminal
     return () => el.removeEventListener('contextmenu', handleContextMenu)
   }, [])
 
-  // Close context menu on any click.
-  useEffect(() => {
-    if (!contextMenu) return
-    const close = () => setContextMenu(null)
-    window.addEventListener('click', close)
-    return () => window.removeEventListener('click', close)
-  }, [contextMenu])
-
-  const handleClear = () => {
-    managerRef.current.clearTerminalScreen(sessionId)
-    setContextMenu(null)
-  }
-
   return (
     <div ref={containerRef} className="h-full w-full relative bg-background pl-3 pt-2">
       {contextMenu && (
-        <div
-          className="fixed z-50 min-w-[120px] rounded-md border border-border bg-card py-1 shadow-lg"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
-        >
-          <button
-            className="w-full px-3 py-1.5 text-left text-xs text-foreground hover:bg-accent"
-            onClick={handleClear}
+        <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)}>
+          <ContextMenuItem
+            onClick={() => {
+              managerRef.current.clearTerminalScreen(sessionId)
+              setContextMenu(null)
+            }}
           >
             Clear Terminal
-          </button>
-        </div>
+          </ContextMenuItem>
+        </ContextMenu>
       )}
     </div>
   )

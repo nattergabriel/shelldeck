@@ -8,18 +8,15 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useTerminalContext } from '@/context/terminal-context'
-import { useTerminalManager } from '@/hooks/use-terminal'
+import { useTerminalManager } from '@/context/terminal-manager'
 import { TerminalHeader } from './TerminalHeader'
 import { TerminalView } from './TerminalView'
 import { SearchBar } from './SearchBar'
 import { IdleScreen } from './IdleScreen'
 
-interface WorkspaceProps {
-  terminalManager: ReturnType<typeof useTerminalManager>
-}
-
-export function Workspace({ terminalManager }: WorkspaceProps) {
+export function Workspace() {
   const { state, reviveSession } = useTerminalContext()
+  const terminalManager = useTerminalManager()
   const [searchOpen, setSearchOpen] = useState(false)
   const activeSession = state.sessions.find((s) => s.id === state.activeTerminalId)
   const activeProject = activeSession
@@ -43,8 +40,7 @@ export function Workspace({ terminalManager }: WorkspaceProps) {
     setSearchOpen(false)
   }, [state.activeTerminalId])
 
-  // Auto-restart dead sessions when they become active (e.g. after
-  // closing a terminal and the reducer selects a sibling).
+  // Auto-restart dead sessions when they become active.
   const prevActiveId = useRef(state.activeTerminalId)
   useEffect(() => {
     if (state.activeTerminalId && state.activeTerminalId !== prevActiveId.current) {
@@ -66,26 +62,14 @@ export function Workspace({ terminalManager }: WorkspaceProps) {
 
   return (
     <div className="flex-1 flex flex-col min-w-0 bg-background">
-      {/* Header for the active terminal */}
       {activeSession && activeProject && (
-        <TerminalHeader
-          session={activeSession}
-          projectPath={activeProject.path}
-          terminalManager={terminalManager}
-        />
+        <TerminalHeader session={activeSession} projectPath={activeProject.path} />
       )}
 
-      {/* Search bar */}
       {searchOpen && state.activeTerminalId && (
-        <SearchBar
-          sessionId={state.activeTerminalId}
-          terminalManager={terminalManager}
-          onClose={() => setSearchOpen(false)}
-        />
+        <SearchBar sessionId={state.activeTerminalId} onClose={() => setSearchOpen(false)} />
       )}
 
-      {/* Terminal views — all rendered, only active is visible.
-         This preserves xterm.js output when switching sessions. */}
       <div className="flex-1 relative overflow-hidden">
         {state.sessions.map((session) => (
           <div
@@ -96,7 +80,6 @@ export function Workspace({ terminalManager }: WorkspaceProps) {
             <TerminalView
               sessionId={session.id}
               isVisible={session.id === state.activeTerminalId}
-              terminalManager={terminalManager}
             />
           </div>
         ))}

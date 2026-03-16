@@ -5,8 +5,7 @@
 
 import { NotificationsSettings } from './NotificationsSettings'
 import { TerminalSettings } from './TerminalSettings'
-
-export type SettingsCategory = 'terminal' | 'notifications'
+import type { SettingsCategory } from '@/types'
 
 interface SettingsProps {
   category: SettingsCategory

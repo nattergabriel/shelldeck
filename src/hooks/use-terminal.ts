@@ -1,10 +1,13 @@
 /**
  * useTerminalManager — manages the xterm.js Terminal instances and their
- * connection to the PTY backend via the PTY backend.
+ * connection to the PTY backend.
  *
  * Keeps a persistent map of Terminal instances (ref-based, survives re-renders).
  * Terminals are created once and never destroyed until explicitly removed,
  * ensuring output is preserved when switching between sessions.
+ *
+ * This hook is consumed by TerminalManagerProvider — components should use
+ * useTerminalManager() from context/terminal-manager.tsx instead.
  */
 
 import { useRef, useCallback, useMemo, useState, useEffect } from 'react'
@@ -16,6 +19,7 @@ import { useTerminalContext } from '@/context/terminal-context'
 import { useSettings } from '@/context/settings-context'
 import { spawnPty, writePty, resizePty, killPty, removePtyEntry } from '@/lib/api'
 import type { PtyHandle } from '@/lib/api'
+import type { TerminalManager } from '@/types'
 
 interface TerminalEntry {
   terminal: Terminal
@@ -23,12 +27,11 @@ interface TerminalEntry {
   searchAddon: SearchAddon
 }
 
-export function useTerminalManager() {
+export function useTerminalManager(): TerminalManager {
   const terminalsRef = useRef(new Map<string, TerminalEntry>())
   const pendingAttachRef = useRef(new Map<string, HTMLElement>())
 
   // Terminal titles reported by the shell (e.g. "zsh", "vim", "node server.js").
-  // Uses state so components re-render when a title changes.
   const [terminalTitles, setTerminalTitles] = useState<Record<string, string>>({})
 
   // Track the active PTY per session to ignore stale exit events after restart.
@@ -49,18 +52,15 @@ export function useTerminalManager() {
     activePtyRef.current.set(sessionId, pty)
 
     pty.onData((data) => {
-      // Ignore data from a replaced PTY.
       if (activePtyRef.current.get(sessionId) !== pty) return
       const bytes = new Uint8Array(data)
       terminal.write(bytes)
-      // Detect bell character (0x07) and notify.
       if (bytes.includes(0x07)) {
         notifyBellRef.current(sessionId)
       }
     })
 
     pty.onExit(() => {
-      // Ignore exit from a stale PTY (already replaced by a restart).
       if (activePtyRef.current.get(sessionId) !== pty) return
       activePtyRef.current.delete(sessionId)
       removePtyEntry(sessionId)
@@ -68,10 +68,6 @@ export function useTerminalManager() {
     })
   }, [])
 
-  /**
-   * Create a new xterm.js Terminal instance and spawn the backend PTY.
-   * The terminal is not yet attached to a DOM element — call `attachTerminal` for that.
-   */
   const createTerminal = useCallback(
     (sessionId: string, cwd: string) => {
       const terminal = new Terminal({
@@ -112,18 +108,18 @@ export function useTerminalManager() {
 
       terminalsRef.current.set(sessionId, { terminal, fitAddon, searchAddon })
 
-      // Track the shell-reported title (e.g. running process, cwd).
       terminal.onTitleChange((title) => {
-        setTerminalTitles((prev) => ({ ...prev, [sessionId]: title }))
+        setTerminalTitles((prev) =>
+          prev[sessionId] === title ? prev : { ...prev, [sessionId]: title }
+        )
       })
 
-      // Spawn PTY via the PTY backend (use default 80x24 until attached & fitted).
+      // Spawn PTY (use default 80x24 until attached & fitted).
       const pty = spawnPty(sessionId, cwd, 80, 24)
       wirePty(pty, terminal, sessionId)
 
-      // Fix for macOS WKWebView production builds: the delete key gets routed
-      // through IME composition and arrives as a space. Intercept it before
-      // xterm.js processes the (broken) input event and write directly to PTY.
+      // Fix for macOS WKWebView: backspace gets routed through IME composition
+      // and arrives as a space. Intercept and write directly to PTY.
       terminal.attachCustomKeyEventHandler((event) => {
         if (event.type === 'keydown' && event.key === 'Backspace') {
           if (event.metaKey || event.ctrlKey) return true
@@ -133,14 +129,9 @@ export function useTerminalManager() {
         return true
       })
 
-      // Forward keystrokes from xterm to PTY.
-      terminal.onData((data) => {
-        writePty(sessionId, data)
-      })
+      terminal.onData((data) => writePty(sessionId, data))
 
-      // Sync resize from xterm to PTY.
       terminal.onResize((e) => {
-        // Guard against 0-dimension resizes (e.g. fit() on a hidden terminal).
         if (e.cols > 0 && e.rows > 0) {
           resizePty(sessionId, e.cols, e.rows)
         }
@@ -151,7 +142,6 @@ export function useTerminalManager() {
       if (pendingContainer) {
         pendingAttachRef.current.delete(sessionId)
         terminal.open(pendingContainer)
-        // Fit only if the container is visible (hidden containers have 0 dimensions).
         requestAnimationFrame(() => {
           if (pendingContainer.offsetWidth > 0 && pendingContainer.offsetHeight > 0) {
             fitAddon.fit()
@@ -162,26 +152,18 @@ export function useTerminalManager() {
     [wirePty]
   )
 
-  /**
-   * Attach an xterm.js Terminal to a DOM container element.
-   * Called once when the terminal view mounts.
-   */
   const attachTerminal = useCallback((sessionId: string, container: HTMLElement) => {
     const entry = terminalsRef.current.get(sessionId)
     if (!entry) {
-      // No xterm instance yet (restored session). Queue for when createTerminal runs.
       pendingAttachRef.current.set(sessionId, container)
       return
     }
 
     const { terminal, fitAddon } = entry
-
-    // Only open if not already attached to a DOM element.
     if (!terminal.element) {
       terminal.open(container)
     }
 
-    // Fit to container only if visible (hidden containers have 0 dimensions).
     requestAnimationFrame(() => {
       if (container.offsetWidth > 0 && container.offsetHeight > 0) {
         fitAddon.fit()
@@ -189,23 +171,18 @@ export function useTerminalManager() {
     })
   }, [])
 
-  /** Refit a terminal to its container. Only safe to call when the terminal is visible. */
   const fitTerminal = useCallback((sessionId: string) => {
     const entry = terminalsRef.current.get(sessionId)
     if (!entry) return
-    // Guard: don't fit if the terminal has no DOM element or the container is hidden.
     const el = entry.terminal.element
     if (!el || el.offsetWidth === 0 || el.offsetHeight === 0) return
     entry.fitAddon.fit()
   }, [])
 
-  /** Focus the xterm terminal so it captures keystrokes. */
   const focusTerminal = useCallback((sessionId: string) => {
-    const entry = terminalsRef.current.get(sessionId)
-    entry?.terminal.focus()
+    terminalsRef.current.get(sessionId)?.terminal.focus()
   }, [])
 
-  /** Dispose an xterm.js instance and kill the backend PTY. */
   const destroyTerminal = useCallback((sessionId: string) => {
     activePtyRef.current.delete(sessionId)
     pendingAttachRef.current.delete(sessionId)
@@ -222,17 +199,14 @@ export function useTerminalManager() {
     killPty(sessionId)
   }, [])
 
-  /** Restart: kill the old PTY, clear the terminal, and spawn a new PTY in the same cwd. */
   const restartTerminal = useCallback(
     (sessionId: string, cwd: string) => {
       const entry = terminalsRef.current.get(sessionId)
       if (!entry) {
-        // Restored session with no xterm instance yet — create one from scratch.
         createTerminal(sessionId, cwd)
         return
       }
 
-      // Mark old PTY as stale so its exit event is ignored.
       activePtyRef.current.delete(sessionId)
       killPty(sessionId)
       entry.terminal.clear()
@@ -243,55 +217,48 @@ export function useTerminalManager() {
     [createTerminal, wirePty]
   )
 
-  /** Search forward in the terminal scrollback. Returns true if a match was found. */
   const searchTerminal = useCallback((sessionId: string, query: string): boolean => {
     const entry = terminalsRef.current.get(sessionId)
     if (!entry || !query) return false
     return entry.searchAddon.findNext(query, { caseSensitive: false })
   }, [])
 
-  /** Search backward in the terminal scrollback. */
   const searchTerminalPrevious = useCallback((sessionId: string, query: string): boolean => {
     const entry = terminalsRef.current.get(sessionId)
     if (!entry || !query) return false
     return entry.searchAddon.findPrevious(query, { caseSensitive: false })
   }, [])
 
-  /** Clear search highlights. */
   const clearSearch = useCallback((sessionId: string) => {
-    const entry = terminalsRef.current.get(sessionId)
-    entry?.searchAddon.clearDecorations()
+    terminalsRef.current.get(sessionId)?.searchAddon.clearDecorations()
   }, [])
 
-  /** Clear the terminal screen (keeps the shell running). */
   const clearTerminalScreen = useCallback((sessionId: string) => {
-    const entry = terminalsRef.current.get(sessionId)
-    entry?.terminal.clear()
+    terminalsRef.current.get(sessionId)?.terminal.clear()
   }, [])
 
-  // Apply terminal settings changes to all existing terminals.
-  // Terminals may be hidden (display:none) when settings is open, so we also
-  // schedule a delayed refit to catch them when they become visible again.
+  // Apply settings changes to all existing terminals.
   useEffect(() => {
-    const apply = () => {
+    for (const [, entry] of terminalsRef.current) {
+      entry.terminal.options.fontSize = settings.fontSize
+      entry.terminal.options.scrollback = settings.scrollback
+      entry.terminal.clearTextureAtlas()
+      const el = entry.terminal.element
+      if (el && el.offsetWidth > 0 && el.offsetHeight > 0) {
+        entry.fitAddon.fit()
+      }
+    }
+    const timeout = setTimeout(() => {
       for (const [, entry] of terminalsRef.current) {
-        entry.terminal.options.fontSize = settings.fontSize
-        entry.terminal.options.scrollback = settings.scrollback
-        entry.terminal.clearTextureAtlas()
         const el = entry.terminal.element
         if (el && el.offsetWidth > 0 && el.offsetHeight > 0) {
           entry.fitAddon.fit()
         }
       }
-    }
-    apply()
-    // Retry after a short delay for terminals that were hidden during the first pass.
-    const timeout = setTimeout(apply, 150)
+    }, 150)
     return () => clearTimeout(timeout)
   }, [settings.fontSize, settings.scrollback])
 
-  // Memoize the returned object so consumers get a stable reference.
-  // All callbacks are useCallback with stable deps, so this never recomputes.
   return useMemo(
     () => ({
       createTerminal,

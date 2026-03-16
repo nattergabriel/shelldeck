@@ -10,29 +10,25 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import { Sidebar } from '@/components/sidebar/Sidebar'
 import { ResizeHandle } from '@/components/sidebar/ResizeHandle'
 import { Workspace } from '@/components/workspace/Workspace'
-import { Settings, type SettingsCategory } from '@/components/settings/Settings'
+import { Settings } from '@/components/settings/Settings'
 import { StatusBar } from '@/components/statusbar/StatusBar'
-import { useTerminalManager } from '@/hooks/use-terminal'
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts'
 import { useSettings } from '@/context/settings-context'
 import { useAutoUpdate } from '@/hooks/use-auto-update'
-import { saveSettings } from '@/lib/api'
+import type { SettingsCategory } from '@/types'
 
 const DEFAULT_SIDEBAR_WIDTH = 256
 
 export function App() {
-  const terminalManager = useTerminalManager()
-  const { settings } = useSettings()
+  const { settings, updateSetting } = useSettings()
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsCategory, setSettingsCategory] = useState<SettingsCategory>('terminal')
 
-  useKeyboardShortcuts(terminalManager)
+  useKeyboardShortcuts()
   useAutoUpdate()
 
-  // Show the window after the first paint. It starts hidden
-  // (visible:false in tauri.conf.json) so window-state restoration
-  // and the initial render happen off-screen.
+  // Show the window after the first paint.
   useEffect(() => {
     getCurrentWindow().show().catch(console.error)
   }, [])
@@ -50,18 +46,14 @@ export function App() {
   sidebarWidthRef.current = sidebarWidth
 
   const handleResizeEnd = useCallback(() => {
-    saveSettings({ ...settings, sidebarWidth: sidebarWidthRef.current } as unknown as Record<
-      string,
-      unknown
-    >)
-  }, [settings])
+    updateSetting('sidebarWidth', sidebarWidthRef.current)
+  }, [updateSetting])
 
   return (
     <div className="h-screen flex flex-col">
       <div className="flex flex-1 min-h-0">
         <Sidebar
           width={sidebarWidth}
-          terminalManager={terminalManager}
           settingsOpen={settingsOpen}
           settingsCategory={settingsCategory}
           onOpenSettings={() => setSettingsOpen(true)}
@@ -78,7 +70,7 @@ export function App() {
           className="flex-1 flex flex-col min-w-0"
           style={{ display: settingsOpen ? 'none' : undefined }}
         >
-          <Workspace terminalManager={terminalManager} />
+          <Workspace />
         </div>
       </div>
       <StatusBar />

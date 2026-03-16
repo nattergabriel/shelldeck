@@ -8,14 +8,12 @@
 import { ProjectList } from './ProjectList'
 import { SettingsSidebar } from '@/components/settings/SettingsSidebar'
 import { useTerminalContext } from '@/context/terminal-context'
-import { useTerminalManager } from '@/hooks/use-terminal'
 import { FolderPlus, Settings } from 'lucide-react'
 import { openFolderDialog } from '@/lib/api'
-import type { SettingsCategory } from '@/components/settings/Settings'
+import type { SettingsCategory } from '@/types'
 
 interface SidebarProps {
   width: number
-  terminalManager: ReturnType<typeof useTerminalManager>
   settingsOpen: boolean
   settingsCategory: SettingsCategory
   onOpenSettings: () => void
@@ -25,7 +23,6 @@ interface SidebarProps {
 
 export function Sidebar({
   width,
-  terminalManager,
   settingsOpen,
   settingsCategory,
   onOpenSettings,
@@ -75,7 +72,7 @@ export function Sidebar({
                 No projects yet
               </p>
             ) : (
-              <ProjectList terminalManager={terminalManager} />
+              <ProjectList />
             )}
           </div>
 

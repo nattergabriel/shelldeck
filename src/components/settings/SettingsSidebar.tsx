@@ -6,8 +6,8 @@
 import { useState, useEffect } from 'react'
 import { getVersion } from '@tauri-apps/api/app'
 import { Bell, ArrowLeft, Terminal } from 'lucide-react'
-import type { SettingsCategory } from './Settings'
 import { cn } from '@/lib/utils'
+import type { SettingsCategory } from '@/types'
 
 const categories: { id: SettingsCategory; label: string; icon: typeof Bell }[] = [
   { id: 'terminal', label: 'Terminal', icon: Terminal },

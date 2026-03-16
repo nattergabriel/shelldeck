@@ -1,7 +1,7 @@
 <h3 align="center"><img src="logo.svg" alt="shelldeck logo" width="28" style="vertical-align: middle;" />&nbsp;&nbsp;shelldeck</h3>
 
 <p align="center">
-  A lightweight multi-terminal dashboard for managing concurrent shell sessions by project.<br>
+  A lightweight multi-terminal dashboard for managing concurrent shell sessions by workspace.<br>
   Built for running multiple coding agents side by side.
 </p>
 
@@ -17,16 +17,15 @@
   <img src=".github/screenshot.png" alt="shelldeck screenshot" width="800" />
 </p>
 
-Running CLI-based coding agents (Claude Code, Codex, Gemini CLI, etc.) across multiple projects means juggling a lot of terminal windows. shelldeck gives you a single dashboard where each project gets its own group of terminals, all starting in the right directory. Switch between agents without losing output, restart crashed sessions in one click, and see system resource usage at a glance.
+Running CLI-based coding agents (Claude Code, Codex, Gemini CLI, etc.) across multiple projects means juggling a lot of terminal windows. shelldeck gives you a single dashboard where each workspace gets its own group of terminals, all starting in the right directory. Switch between agents without losing output and restart crashed sessions in one click.
 
 It works just as well for general terminal workflows, but the multi-agent use case is what motivated it.
 
 ## Features
 
-- Group terminals by project: each opens in the right directory
+- Group terminals by workspace: each opens in the right directory
 - Run multiple coding agents (Claude Code, Codex, Gemini CLI) side by side
 - Switch between terminals without losing output
-- System resource monitoring (CPU, memory)
 - Keyboard shortcuts and in-terminal search
 - Cross-platform (macOS, Linux, Windows)
 

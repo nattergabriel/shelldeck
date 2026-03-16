@@ -2,8 +2,8 @@
  * Shared data types used across the application.
  */
 
-/** Represents a project (local folder) added to shelldeck. */
-export interface Project {
+/** Represents a workspace (local folder) added to shelldeck. */
+export interface Workspace {
   id: string
   name: string
   path: string
@@ -12,7 +12,7 @@ export interface Project {
 /** The state of a terminal as tracked by the renderer. */
 export interface TerminalSession {
   id: string
-  projectId: string
+  workspaceId: string
   name: string
   isRunning: boolean
 }

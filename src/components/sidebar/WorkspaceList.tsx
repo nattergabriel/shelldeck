@@ -1,7 +1,7 @@
 /**
- * ProjectList — renders each project with its terminal sessions.
- * Projects can be reordered via pointer-based drag-and-drop.
- * Double-click a project name to rename. Right-click for a context menu.
+ * WorkspaceList — renders each workspace with its terminal sessions.
+ * Workspaces can be reordered via pointer-based drag-and-drop.
+ * Double-click a workspace name to rename. Right-click for a context menu.
  */
 
 import { useState } from 'react'
@@ -16,75 +16,75 @@ import { pathExists } from '@/lib/api'
 import { confirm } from '@tauri-apps/plugin-dialog'
 import { open } from '@tauri-apps/plugin-shell'
 
-export function ProjectList() {
-  const { state, createSession, removeProject, reorderProjects, renameProject } =
+export function WorkspaceList() {
+  const { state, createSession, removeWorkspace, reorderWorkspaces, renameWorkspace } =
     useTerminalContext()
   const terminalManager = useTerminalManager()
-  const rename = useInlineRename(renameProject)
-  const drag = useDragReorder(reorderProjects)
+  const rename = useInlineRename(renameWorkspace)
+  const drag = useDragReorder(reorderWorkspaces)
 
   const [invalidPaths, setInvalidPaths] = useState<Set<string>>(new Set())
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [contextMenu, setContextMenu] = useState<{
     x: number
     y: number
-    projectId: string
+    workspaceId: string
   } | null>(null)
 
-  const contextProject = contextMenu
-    ? state.projects.find((p) => p.id === contextMenu.projectId)
+  const contextWorkspace = contextMenu
+    ? state.workspaces.find((w) => w.id === contextMenu.workspaceId)
     : null
 
-  const toggleCollapsed = (projectId: string) => {
+  const toggleCollapsed = (workspaceId: string) => {
     setCollapsed((prev) => {
       const next = new Set(prev)
-      if (next.has(projectId)) next.delete(projectId)
-      else next.add(projectId)
+      if (next.has(workspaceId)) next.delete(workspaceId)
+      else next.add(workspaceId)
       return next
     })
   }
 
-  const handleNewTerminal = async (projectId: string, projectPath: string) => {
-    const exists = await pathExists(projectPath)
+  const handleNewTerminal = async (workspaceId: string, workspacePath: string) => {
+    const exists = await pathExists(workspacePath)
     if (!exists) {
-      setInvalidPaths((prev) => new Set(prev).add(projectId))
+      setInvalidPaths((prev) => new Set(prev).add(workspaceId))
       return
     }
     setInvalidPaths((prev) => {
       const next = new Set(prev)
-      next.delete(projectId)
+      next.delete(workspaceId)
       return next
     })
-    const sessionId = createSession(projectId)
-    terminalManager.createTerminal(sessionId, projectPath)
+    const sessionId = createSession(workspaceId)
+    terminalManager.createTerminal(sessionId, workspacePath)
   }
 
-  const handleRemove = async (projectId: string, projectName: string) => {
-    const ok = await confirm(`Remove "${projectName}" and all its terminals?`, {
-      title: 'Remove Project',
+  const handleRemove = async (workspaceId: string, workspaceName: string) => {
+    const ok = await confirm(`Remove "${workspaceName}" and all its terminals?`, {
+      title: 'Remove Workspace',
       kind: 'warning'
     })
-    if (ok) removeProject(projectId)
+    if (ok) removeWorkspace(workspaceId)
   }
 
   return (
     <div className="space-y-0.5">
-      {state.projects.map((project, index) => {
-        const sessions = state.sessions.filter((s) => s.projectId === project.id)
-        const isInvalid = invalidPaths.has(project.id)
-        const isCollapsed = collapsed.has(project.id)
+      {state.workspaces.map((workspace, index) => {
+        const sessions = state.sessions.filter((s) => s.workspaceId === workspace.id)
+        const isInvalid = invalidPaths.has(workspace.id)
+        const isCollapsed = collapsed.has(workspace.id)
         const isDragging = drag.dragging === index
         const showIndicatorBefore =
           drag.dropTarget === index && drag.dragging !== null && drag.dragging !== index
-        const isEditing = rename.editingId === project.id
+        const isEditing = rename.editingId === workspace.id
 
         return (
-          <div key={project.id} ref={(el) => drag.registerRef(index, el)}>
+          <div key={workspace.id} ref={(el) => drag.registerRef(index, el)}>
             {showIndicatorBefore && (
               <div className="h-0.5 bg-foreground/30 rounded-full mx-2 mb-0.5" />
             )}
 
-            {/* Project header */}
+            {/* Workspace header */}
             <div
               className={`flex items-center justify-between px-2 py-1.5 rounded-md group hover:bg-accent transition-colors cursor-grab active:cursor-grabbing ${isDragging ? 'opacity-40' : ''}`}
               onPointerDown={(e) => {
@@ -95,13 +95,13 @@ export function ProjectList() {
               }}
               onContextMenu={(e) => {
                 e.preventDefault()
-                setContextMenu({ x: e.clientX, y: e.clientY, projectId: project.id })
+                setContextMenu({ x: e.clientX, y: e.clientY, workspaceId: workspace.id })
               }}
             >
               <div className="flex items-center gap-1.5 min-w-0">
                 <button
                   className="h-6 w-6 -ml-0.5 flex items-center justify-center shrink-0 text-muted-foreground hover:text-foreground rounded"
-                  onClick={() => toggleCollapsed(project.id)}
+                  onClick={() => toggleCollapsed(workspace.id)}
                 >
                   <ChevronRight
                     className={`h-3.5 w-3.5 transition-transform ${isCollapsed ? '' : 'rotate-90'}`}
@@ -116,16 +116,16 @@ export function ProjectList() {
                 ) : (
                   <span
                     className="text-sm text-foreground truncate"
-                    onDoubleClick={() => rename.start(project.id, project.name)}
+                    onDoubleClick={() => rename.start(workspace.id, workspace.name)}
                   >
-                    {project.name}
+                    {workspace.name}
                   </span>
                 )}
               </div>
               {!isEditing && (
                 <button
                   className="h-6 w-6 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground hover:bg-secondary"
-                  onClick={() => handleNewTerminal(project.id, project.path)}
+                  onClick={() => handleNewTerminal(workspace.id, workspace.path)}
                   title="New Terminal"
                 >
                   <Plus className="h-3.5 w-3.5" />
@@ -143,10 +143,10 @@ export function ProjectList() {
             {!isCollapsed && <TerminalList sessions={sessions} />}
 
             {/* Show indicator after the last item if dropping at the end */}
-            {drag.dropTarget === state.projects.length &&
-              index === state.projects.length - 1 &&
+            {drag.dropTarget === state.workspaces.length &&
+              index === state.workspaces.length - 1 &&
               drag.dragging !== null &&
-              drag.dragging !== state.projects.length - 1 && (
+              drag.dragging !== state.workspaces.length - 1 && (
                 <div className="h-0.5 bg-foreground/30 rounded-full mx-2 mt-0.5" />
               )}
           </div>
@@ -154,11 +154,11 @@ export function ProjectList() {
       })}
 
       {/* Context menu */}
-      {contextMenu && contextProject && (
+      {contextMenu && contextWorkspace && (
         <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)}>
           <ContextMenuItem
             onClick={() => {
-              rename.start(contextProject.id, contextProject.name)
+              rename.start(contextWorkspace.id, contextWorkspace.name)
               setContextMenu(null)
             }}
           >
@@ -166,7 +166,7 @@ export function ProjectList() {
           </ContextMenuItem>
           <ContextMenuItem
             onClick={() => {
-              handleNewTerminal(contextProject.id, contextProject.path)
+              handleNewTerminal(contextWorkspace.id, contextWorkspace.path)
               setContextMenu(null)
             }}
           >
@@ -174,7 +174,7 @@ export function ProjectList() {
           </ContextMenuItem>
           <ContextMenuItem
             onClick={() => {
-              open(contextProject.path)
+              open(contextWorkspace.path)
               setContextMenu(null)
             }}
           >
@@ -184,7 +184,7 @@ export function ProjectList() {
           <ContextMenuItem
             destructive
             onClick={() => {
-              handleRemove(contextProject.id, contextProject.name)
+              handleRemove(contextWorkspace.id, contextWorkspace.name)
               setContextMenu(null)
             }}
           >

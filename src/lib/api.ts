@@ -2,13 +2,13 @@
  * Tauri API bridge — centralizes all backend communication.
  *
  * PTY operations use Tauri invoke() to our custom PTY backend.
- * Store, dialog, stats, and fs use invoke() Tauri commands.
+ * Store, dialog, and fs use invoke() Tauri commands.
  */
 
 import { invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
 import { platform } from '@tauri-apps/plugin-os'
-import type { Project, TerminalSession, AppSettings } from '@/types'
+import type { Workspace, TerminalSession, AppSettings } from '@/types'
 
 // --- PTY Management ---
 
@@ -139,12 +139,12 @@ export async function openFolderDialog(): Promise<string | null> {
 
 // --- Store (JSON persistence via Tauri commands) ---
 
-export async function getProjects(): Promise<Project[]> {
-  return await invoke<Project[]>('get_projects')
+export async function getWorkspaces(): Promise<Workspace[]> {
+  return await invoke<Workspace[]>('get_workspaces')
 }
 
-export async function saveProjects(projects: Project[]): Promise<void> {
-  await invoke('save_projects', { projects })
+export async function saveWorkspaces(workspaces: Workspace[]): Promise<void> {
+  await invoke('save_workspaces', { workspaces })
 }
 
 export async function getSessions(): Promise<TerminalSession[]> {

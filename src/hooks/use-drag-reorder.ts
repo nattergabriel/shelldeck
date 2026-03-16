@@ -1,6 +1,6 @@
 /**
  * useDragReorder — pointer-based drag-to-reorder for vertical lists.
- * Used by ProjectList for reordering projects via drag-and-drop.
+ * Used by WorkspaceList for reordering workspaces via drag-and-drop.
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react'

@@ -7,7 +7,7 @@ import { SettingsProvider } from './context/settings-context'
 import './index.css'
 
 // Disable the default browser/WebView context menu globally.
-// Our custom context menus (terminal, project list) call e.preventDefault() on their own.
+// Our custom context menus (terminal, workspace list) call e.preventDefault() on their own.
 document.addEventListener('contextmenu', (e) => e.preventDefault())
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

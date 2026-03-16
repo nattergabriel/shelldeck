@@ -33,8 +33,8 @@ pub fn run() {
         })
         .manage(pty::PtyState::default())
         .invoke_handler(tauri::generate_handler![
-            store::get_projects,
-            store::save_projects,
+            store::get_workspaces,
+            store::save_workspaces,
             store::get_sessions,
             store::save_sessions,
             store::get_settings,

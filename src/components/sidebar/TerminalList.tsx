@@ -1,5 +1,5 @@
 /**
- * TerminalList — renders clickable terminal session entries under a project.
+ * TerminalList — renders clickable terminal session entries under a workspace.
  * Clicking a session makes it the active (visible) terminal in the workspace.
  * Double-clicking the name enters inline rename mode.
  */

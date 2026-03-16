@@ -1,9 +1,9 @@
 /**
- * TerminalContext — centralized state for projects and terminal sessions.
+ * TerminalContext — centralized state for workspaces and terminal sessions.
  *
  * Uses React Context + useReducer for predictable state updates.
- * All terminal and project mutations go through dispatched actions.
- * Projects and sessions are persisted to disk via Tauri commands.
+ * All terminal and workspace mutations go through dispatched actions.
+ * Workspaces and sessions are persisted to disk via Tauri commands.
  */
 
 import {
@@ -15,8 +15,8 @@ import {
   useRef,
   type ReactNode
 } from 'react'
-import type { Project, TerminalSession } from '@/types'
-import { getProjects, saveProjects, getSessions, saveSessions, pathExists } from '@/lib/api'
+import type { Workspace, TerminalSession } from '@/types'
+import { getWorkspaces, saveWorkspaces, getSessions, saveSessions, pathExists } from '@/lib/api'
 import { useSettings } from '@/context/settings-context'
 import {
   isPermissionGranted,
@@ -27,7 +27,7 @@ import {
 // --- State shape ---
 
 interface TerminalState {
-  projects: Project[]
+  workspaces: Workspace[]
   sessions: TerminalSession[]
   activeTerminalId: string | null
   /** Session IDs with unread bell notifications. Not persisted. */
@@ -35,7 +35,7 @@ interface TerminalState {
 }
 
 const initialState: TerminalState = {
-  projects: [],
+  workspaces: [],
   sessions: [],
   activeTerminalId: null,
   bellSessionIds: new Set()
@@ -44,44 +44,44 @@ const initialState: TerminalState = {
 // --- Actions ---
 
 type Action =
-  | { type: 'SET_PROJECTS'; projects: Project[] }
-  | { type: 'ADD_PROJECT'; project: Project }
-  | { type: 'REMOVE_PROJECT'; projectId: string }
-  | { type: 'REORDER_PROJECTS'; fromIndex: number; toIndex: number }
+  | { type: 'SET_WORKSPACES'; workspaces: Workspace[] }
+  | { type: 'ADD_WORKSPACE'; workspace: Workspace }
+  | { type: 'REMOVE_WORKSPACE'; workspaceId: string }
+  | { type: 'REORDER_WORKSPACES'; fromIndex: number; toIndex: number }
   | { type: 'SET_SESSIONS'; sessions: TerminalSession[] }
   | { type: 'ADD_SESSION'; session: TerminalSession }
   | { type: 'REMOVE_SESSION'; sessionId: string }
   | { type: 'SET_ACTIVE_TERMINAL'; sessionId: string | null }
   | { type: 'SET_SESSION_RUNNING'; sessionId: string; isRunning: boolean }
   | { type: 'RENAME_SESSION'; sessionId: string; name: string }
-  | { type: 'RENAME_PROJECT'; projectId: string; name: string }
+  | { type: 'RENAME_WORKSPACE'; workspaceId: string; name: string }
   | { type: 'NOTIFY_BELL'; sessionId: string }
   | { type: 'CLEAR_BELL'; sessionId: string }
 
 function reducer(state: TerminalState, action: Action): TerminalState {
   switch (action.type) {
-    case 'SET_PROJECTS':
-      return { ...state, projects: action.projects }
+    case 'SET_WORKSPACES':
+      return { ...state, workspaces: action.workspaces }
 
-    case 'ADD_PROJECT':
-      return { ...state, projects: [...state.projects, action.project] }
+    case 'ADD_WORKSPACE':
+      return { ...state, workspaces: [...state.workspaces, action.workspace] }
 
-    case 'REORDER_PROJECTS': {
-      const projects = [...state.projects]
-      const [moved] = projects.splice(action.fromIndex, 1)
-      projects.splice(action.toIndex, 0, moved)
-      return { ...state, projects }
+    case 'REORDER_WORKSPACES': {
+      const workspaces = [...state.workspaces]
+      const [moved] = workspaces.splice(action.fromIndex, 1)
+      workspaces.splice(action.toIndex, 0, moved)
+      return { ...state, workspaces }
     }
 
-    case 'REMOVE_PROJECT': {
-      const remaining = state.sessions.filter((s) => s.projectId !== action.projectId)
+    case 'REMOVE_WORKSPACE': {
+      const remaining = state.sessions.filter((s) => s.workspaceId !== action.workspaceId)
       const removedIds = state.sessions
-        .filter((s) => s.projectId === action.projectId)
+        .filter((s) => s.workspaceId === action.workspaceId)
         .map((s) => s.id)
       const lostActive = state.activeTerminalId && removedIds.includes(state.activeTerminalId)
       return {
         ...state,
-        projects: state.projects.filter((p) => p.id !== action.projectId),
+        workspaces: state.workspaces.filter((w) => w.id !== action.workspaceId),
         sessions: remaining,
         activeTerminalId: lostActive ? (remaining[0]?.id ?? null) : state.activeTerminalId
       }
@@ -128,11 +128,11 @@ function reducer(state: TerminalState, action: Action): TerminalState {
         )
       }
 
-    case 'RENAME_PROJECT':
+    case 'RENAME_WORKSPACE':
       return {
         ...state,
-        projects: state.projects.map((p) =>
-          p.id === action.projectId ? { ...p, name: action.name } : p
+        workspaces: state.workspaces.map((w) =>
+          w.id === action.workspaceId ? { ...w, name: action.name } : w
         )
       }
 
@@ -160,15 +160,15 @@ function reducer(state: TerminalState, action: Action): TerminalState {
 
 interface TerminalContextValue {
   state: TerminalState
-  addProject: (name: string, path: string) => void
-  removeProject: (projectId: string) => void
-  reorderProjects: (fromIndex: number, toIndex: number) => void
-  createSession: (projectId: string) => string
+  addWorkspace: (name: string, path: string) => void
+  removeWorkspace: (workspaceId: string) => void
+  reorderWorkspaces: (fromIndex: number, toIndex: number) => void
+  createSession: (workspaceId: string) => string
   removeSession: (sessionId: string) => void
   setActiveTerminal: (sessionId: string | null) => void
   markSessionDead: (sessionId: string) => void
   renameSession: (sessionId: string, name: string) => void
-  renameProject: (projectId: string, name: string) => void
+  renameWorkspace: (workspaceId: string, name: string) => void
   reviveSession: (sessionId: string) => void
   notifyBell: (sessionId: string) => void
 }
@@ -181,32 +181,32 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState)
   const { settings } = useSettings()
 
-  // Load persisted projects and sessions on mount.
+  // Load persisted workspaces and sessions on mount.
   useEffect(() => {
-    getProjects().then(async (projects) => {
-      if (projects.length === 0) {
+    getWorkspaces().then(async (workspaces) => {
+      if (workspaces.length === 0) {
         sessionsLoaded.current = true
         return
       }
       const checks = await Promise.all(
-        projects.map(async (p) => ({
-          project: p,
-          exists: await pathExists(p.path)
+        workspaces.map(async (w) => ({
+          workspace: w,
+          exists: await pathExists(w.path)
         }))
       )
-      const valid = checks.filter((c) => c.exists).map((c) => c.project)
+      const valid = checks.filter((c) => c.exists).map((c) => c.workspace)
       if (valid.length > 0) {
-        dispatch({ type: 'SET_PROJECTS', projects: valid })
+        dispatch({ type: 'SET_WORKSPACES', workspaces: valid })
       }
-      if (valid.length !== projects.length) {
-        saveProjects(valid)
+      if (valid.length !== workspaces.length) {
+        saveWorkspaces(valid)
       }
 
-      // Load saved sessions, filtering out any whose project no longer exists.
-      const validIds = new Set(valid.map((p) => p.id))
+      // Load saved sessions, filtering out any whose workspace no longer exists.
+      const validIds = new Set(valid.map((w) => w.id))
       const savedSessions = await getSessions()
       const validSessions = savedSessions
-        .filter((s) => validIds.has(s.projectId))
+        .filter((s) => validIds.has(s.workspaceId))
         .map((s) => ({ ...s, isRunning: false }))
       if (validSessions.length > 0) {
         dispatch({ type: 'SET_SESSIONS', sessions: validSessions })
@@ -224,15 +224,15 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
-  // Persist projects whenever they change (skip the initial empty state).
-  const isInitialProjectMount = useRef(true)
+  // Persist workspaces whenever they change (skip the initial empty state).
+  const isInitialWorkspaceMount = useRef(true)
   useEffect(() => {
-    if (isInitialProjectMount.current) {
-      isInitialProjectMount.current = false
+    if (isInitialWorkspaceMount.current) {
+      isInitialWorkspaceMount.current = false
       return
     }
-    saveProjects(state.projects)
-  }, [state.projects])
+    saveWorkspaces(state.workspaces)
+  }, [state.workspaces])
 
   // Persist sessions whenever they change (skip until initial load completes).
   const sessionsLoaded = useRef(false)
@@ -241,24 +241,24 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
     saveSessions(state.sessions)
   }, [state.sessions])
 
-  const addProject = useCallback((name: string, path: string) => {
-    const project: Project = { id: `project-${Date.now()}`, name, path }
-    dispatch({ type: 'ADD_PROJECT', project })
+  const addWorkspace = useCallback((name: string, path: string) => {
+    const workspace: Workspace = { id: `workspace-${Date.now()}`, name, path }
+    dispatch({ type: 'ADD_WORKSPACE', workspace })
   }, [])
 
-  const removeProject = useCallback((projectId: string) => {
-    dispatch({ type: 'REMOVE_PROJECT', projectId })
+  const removeWorkspace = useCallback((workspaceId: string) => {
+    dispatch({ type: 'REMOVE_WORKSPACE', workspaceId })
   }, [])
 
-  const reorderProjects = useCallback((fromIndex: number, toIndex: number) => {
-    dispatch({ type: 'REORDER_PROJECTS', fromIndex, toIndex })
+  const reorderWorkspaces = useCallback((fromIndex: number, toIndex: number) => {
+    dispatch({ type: 'REORDER_WORKSPACES', fromIndex, toIndex })
   }, [])
 
-  const createSession = useCallback((projectId: string): string => {
+  const createSession = useCallback((workspaceId: string): string => {
     sessionCounter++
     const session: TerminalSession = {
       id: `term-${Date.now()}-${sessionCounter}`,
-      projectId,
+      workspaceId,
       name: `Terminal ${sessionCounter}`,
       isRunning: true
     }
@@ -285,8 +285,8 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'RENAME_SESSION', sessionId, name })
   }, [])
 
-  const renameProject = useCallback((projectId: string, name: string) => {
-    dispatch({ type: 'RENAME_PROJECT', projectId, name })
+  const renameWorkspace = useCallback((workspaceId: string, name: string) => {
+    dispatch({ type: 'RENAME_WORKSPACE', workspaceId, name })
   }, [])
 
   const reviveSession = useCallback((sessionId: string) => {
@@ -321,15 +321,15 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
     <TerminalContext.Provider
       value={{
         state,
-        addProject,
-        removeProject,
-        reorderProjects,
+        addWorkspace,
+        removeWorkspace,
+        reorderWorkspaces,
         createSession,
         removeSession,
         setActiveTerminal,
         markSessionDead,
         renameSession,
-        renameProject,
+        renameWorkspace,
         reviveSession,
         notifyBell
       }}

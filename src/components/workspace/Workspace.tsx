@@ -19,8 +19,8 @@ export function Workspace() {
   const terminalManager = useTerminalManager()
   const [searchOpen, setSearchOpen] = useState(false)
   const activeSession = state.sessions.find((s) => s.id === state.activeTerminalId)
-  const activeProject = activeSession
-    ? state.projects.find((p) => p.id === activeSession.projectId)
+  const activeWorkspace = activeSession
+    ? state.workspaces.find((w) => w.id === activeSession.workspaceId)
     : null
 
   // Cmd+F toggles the search bar.
@@ -46,15 +46,15 @@ export function Workspace() {
     if (state.activeTerminalId && state.activeTerminalId !== prevActiveId.current) {
       const session = state.sessions.find((s) => s.id === state.activeTerminalId)
       if (session && !session.isRunning) {
-        const project = state.projects.find((p) => p.id === session.projectId)
-        if (project) {
+        const workspace = state.workspaces.find((w) => w.id === session.workspaceId)
+        if (workspace) {
           reviveSession(session.id)
-          terminalManager.restartTerminal(session.id, project.path)
+          terminalManager.restartTerminal(session.id, workspace.path)
         }
       }
     }
     prevActiveId.current = state.activeTerminalId
-  }, [state.activeTerminalId, state.sessions, state.projects, reviveSession, terminalManager])
+  }, [state.activeTerminalId, state.sessions, state.workspaces, reviveSession, terminalManager])
 
   if (!state.activeTerminalId) {
     return <IdleScreen />
@@ -62,8 +62,8 @@ export function Workspace() {
 
   return (
     <div className="flex-1 flex flex-col min-w-0 bg-background">
-      {activeSession && activeProject && (
-        <TerminalHeader session={activeSession} projectPath={activeProject.path} />
+      {activeSession && activeWorkspace && (
+        <TerminalHeader session={activeSession} workspacePath={activeWorkspace.path} />
       )}
 
       {searchOpen && state.activeTerminalId && (

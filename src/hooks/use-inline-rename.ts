@@ -1,6 +1,6 @@
 /**
  * useInlineRename — reusable hook for inline rename behavior.
- * Used by ProjectList (rename projects) and TerminalList (rename sessions).
+ * Used by WorkspaceList (rename workspaces) and TerminalList (rename sessions).
  */
 
 import {

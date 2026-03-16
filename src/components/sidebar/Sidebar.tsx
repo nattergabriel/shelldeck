@@ -1,11 +1,11 @@
 /**
- * Sidebar — left panel containing the project list and terminal navigation.
+ * Sidebar — left panel containing the workspace list and terminal navigation.
  * Acts as the primary navigation for switching between terminal sessions.
  * Width is controlled by the parent via props (for drag-resize support).
  * When settings is open, renders the settings category list instead.
  */
 
-import { ProjectList } from './ProjectList'
+import { WorkspaceList } from './WorkspaceList'
 import { SettingsSidebar } from '@/components/settings/SettingsSidebar'
 import { useTerminalContext } from '@/context/terminal-context'
 import { Plus, Settings } from 'lucide-react'
@@ -29,14 +29,14 @@ export function Sidebar({
   onCloseSettings,
   onSelectSettingsCategory
 }: SidebarProps) {
-  const { state, addProject } = useTerminalContext()
+  const { state, addWorkspace } = useTerminalContext()
 
-  const handleAddProject = async () => {
+  const handleAddWorkspace = async () => {
     const folderPath = await openFolderDialog()
     if (!folderPath) return
 
     const name = folderPath.split('/').pop() || folderPath
-    addProject(name, folderPath)
+    addWorkspace(name, folderPath)
   }
 
   return (
@@ -75,28 +75,28 @@ export function Sidebar({
         />
       ) : (
         <>
-          {/* Projects heading + add button */}
+          {/* Workspaces heading + add button */}
           <div className="flex items-center justify-between px-3 pb-2">
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Projects
+              Workspaces
             </span>
             <button
               className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-              onClick={handleAddProject}
-              title="Add Project"
+              onClick={handleAddWorkspace}
+              title="Add Workspace"
             >
               <Plus className="h-3.5 w-3.5" />
             </button>
           </div>
 
-          {/* Project list with terminal sessions */}
+          {/* Workspace list with terminal sessions */}
           <div className="flex-1 overflow-y-auto px-2 pb-2">
-            {state.projects.length === 0 ? (
+            {state.workspaces.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center mt-12 px-4">
-                No projects yet
+                No workspaces yet
               </p>
             ) : (
-              <ProjectList />
+              <WorkspaceList />
             )}
           </div>
 

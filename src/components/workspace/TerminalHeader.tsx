@@ -11,16 +11,16 @@ import { RotateCcw } from 'lucide-react'
 
 interface TerminalHeaderProps {
   session: TerminalSession
-  projectPath: string
+  workspacePath: string
 }
 
-export function TerminalHeader({ session, projectPath }: TerminalHeaderProps) {
+export function TerminalHeader({ session, workspacePath }: TerminalHeaderProps) {
   const { reviveSession } = useTerminalContext()
   const terminalManager = useTerminalManager()
 
   const handleRestart = () => {
     reviveSession(session.id)
-    terminalManager.restartTerminal(session.id, projectPath)
+    terminalManager.restartTerminal(session.id, workspacePath)
   }
 
   return (

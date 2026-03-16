@@ -6,7 +6,7 @@
 import { Plus, FolderOpen } from 'lucide-react'
 
 const hints = [
-  { icon: FolderOpen, label: 'Add or select a project', description: 'from the sidebar' },
+  { icon: FolderOpen, label: 'Add or select a workspace', description: 'from the sidebar' },
   { icon: Plus, label: 'Open a terminal', description: 'to start working' }
 ]
 

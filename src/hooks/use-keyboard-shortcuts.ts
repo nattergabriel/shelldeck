@@ -2,7 +2,7 @@
  * useKeyboardShortcuts — registers global keyboard shortcuts for terminal management.
  *
  * Shortcuts (Cmd on macOS, Ctrl on other platforms):
- *   Mod+T          — New terminal in the first project (or active project)
+ *   Mod+T          — New terminal in the first workspace (or active workspace)
  *   Mod+W          — Kill active terminal
  *   Mod+Shift+[    — Switch to previous terminal
  *   Mod+Shift+]    — Switch to next terminal
@@ -23,16 +23,16 @@ export function useKeyboardShortcuts() {
 
       if (!mod) return
 
-      // Cmd+T — new terminal in the active session's project, or the first project.
+      // Cmd+T — new terminal in the active session's workspace, or the first workspace.
       if (e.key === 't' && !e.shiftKey) {
         e.preventDefault()
         const activeSession = state.sessions.find((s) => s.id === state.activeTerminalId)
-        const project = activeSession
-          ? state.projects.find((p) => p.id === activeSession.projectId)
-          : state.projects[0]
-        if (!project) return
-        const sessionId = createSession(project.id)
-        terminalManager.createTerminal(sessionId, project.path)
+        const workspace = activeSession
+          ? state.workspaces.find((w) => w.id === activeSession.workspaceId)
+          : state.workspaces[0]
+        if (!workspace) return
+        const sessionId = createSession(workspace.id)
+        terminalManager.createTerminal(sessionId, workspace.path)
         return
       }
 
@@ -79,7 +79,7 @@ export function useKeyboardShortcuts() {
   }, [
     state.sessions,
     state.activeTerminalId,
-    state.projects,
+    state.workspaces,
     createSession,
     removeSession,
     setActiveTerminal,

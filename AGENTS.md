@@ -19,25 +19,25 @@ shelldeck is a Tauri v2 app with a React frontend and Rust backend:
 
 **Rust backend** (`src-tauri/src/`) — Modular backend split into focused files:
 - `pty.rs` — PTY management using `portable-pty`. Async commands via Tokio for spawn, read, write, resize, kill, and cleanup.
-- `store.rs` — JSON file persistence for projects, sessions, and settings in the Tauri app data dir.
+- `store.rs` — JSON file persistence for workspaces, sessions, and settings in the Tauri app data dir.
 - `menu.rs` — Native app menu with check-for-updates support.
 - `lib.rs` — Tauri setup, plugin registration, and command handler.
 
 **Frontend** (`src/`) — React app with xterm.js:
-- `context/terminal-context.tsx` — Projects and sessions state via useReducer.
+- `context/terminal-context.tsx` — Workspaces and sessions state via useReducer.
 - `context/settings-context.tsx` — App settings (sidebar width, notifications) with auto-persistence.
 - `context/terminal-manager.tsx` — Provides xterm.js terminal manager globally (wraps the hook in a context to avoid prop drilling).
 - `hooks/use-terminal.ts` — Terminal lifecycle: xterm.js instances, PTY attach/detach, fit, search, bell detection. Consumed by `TerminalManagerProvider`.
-- `hooks/use-inline-rename.ts` — Reusable inline rename behavior (shared by ProjectList and TerminalList).
-- `hooks/use-drag-reorder.ts` — Pointer-based drag-to-reorder for vertical lists (used by ProjectList).
+- `hooks/use-inline-rename.ts` — Reusable inline rename behavior (shared by WorkspaceList and TerminalList).
+- `hooks/use-drag-reorder.ts` — Pointer-based drag-to-reorder for vertical lists (used by WorkspaceList).
 - `hooks/use-keyboard-shortcuts.ts` — Global shortcuts (Cmd+T, Cmd+W, Cmd+Shift+[/], Cmd+1-9).
 - `hooks/use-auto-update.ts` — Checks for updates on launch.
-- `components/sidebar/` — Project list, terminal list, resize handle.
+- `components/sidebar/` — Workspace list, terminal list, resize handle.
 - `components/workspace/` — Terminal view, header, search bar, idle screen.
 - `components/settings/` — Settings panel with sidebar navigation.
 - `components/ui/` — shadcn/ui primitives (button, switch, context-menu).
 
-**Types** (`src/types.ts`) — Single source of truth for shared data types (Project, TerminalSession, AppSettings, SettingsCategory, TerminalManager).
+**Types** (`src/types.ts`) — Single source of truth for shared data types (Workspace, TerminalSession, AppSettings, SettingsCategory, TerminalManager).
 
 **API bridge** (`src/lib/api.ts`) — Centralizes all Tauri communication. All operations (PTY, store, dialog, fs) go through `invoke()` commands to the Rust backend.
 

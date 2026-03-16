@@ -40,13 +40,13 @@ fn save_json(app: &AppHandle, filename: &str, value: &Value) -> Result<(), Strin
 }
 
 #[tauri::command]
-pub fn get_projects(app: AppHandle) -> Result<Value, String> {
-    get_json(&app, "projects.json", Value::Array(vec![]))
+pub fn get_workspaces(app: AppHandle) -> Result<Value, String> {
+    get_json(&app, "workspaces.json", Value::Array(vec![]))
 }
 
 #[tauri::command]
-pub fn save_projects(app: AppHandle, projects: Value) -> Result<(), String> {
-    save_json(&app, "projects.json", &projects)
+pub fn save_workspaces(app: AppHandle, workspaces: Value) -> Result<(), String> {
+    save_json(&app, "workspaces.json", &workspaces)
 }
 
 #[tauri::command]

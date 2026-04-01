@@ -17,7 +17,7 @@ import { SearchAddon } from '@xterm/addon-search'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { useTerminalContext } from '@/context/terminal-context'
 import { useSettings } from '@/context/settings-context'
-import { spawnPty, writePty, resizePty, killPty, removePtyEntry } from '@/lib/api'
+import { spawnPty, writePty, resizePty, killPty } from '@/lib/api'
 import type { PtyHandle } from '@/lib/api'
 import type { TerminalManager } from '@/types'
 
@@ -63,7 +63,6 @@ export function useTerminalManager(): TerminalManager {
     pty.onExit(() => {
       if (activePtyRef.current.get(sessionId) !== pty) return
       activePtyRef.current.delete(sessionId)
-      removePtyEntry(sessionId)
       markSessionDeadRef.current(sessionId)
     })
   }, [])

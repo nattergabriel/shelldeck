@@ -11,10 +11,8 @@ tauri = { version = "2", features = [] }
 portable-pty = "0.9"
 tokio = { version = "1", features = ["sync", "rt"] }
 tauri-plugin-dialog = "2"
-tauri-plugin-os = "2"
-tauri-plugin-fs = "2"
 tauri-plugin-shell = "2"
-serde = { version = "1", features = ["derive"] }
+serde = "1"
 serde_json = "1"
 tauri-plugin-window-state = "2"
 tauri-plugin-notification = "2"

@@ -7,13 +7,11 @@
 
 import { invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
-import { platform } from '@tauri-apps/plugin-os'
 import type { Workspace, TerminalSession, AppSettings } from '@/types'
 
 // --- PTY Management ---
 
 export interface PtyHandle {
-  pid: number
   onData: (cb: (data: number[]) => void) => void
   onExit: (cb: (info: { exitCode: number }) => void) => void
   write: (data: string) => void
@@ -21,15 +19,10 @@ export interface PtyHandle {
   kill: () => void
 }
 
-function getShell(): string {
-  return platform() === 'windows' ? 'powershell.exe' : '/bin/zsh'
-}
-
 const ptyHandles = new Map<string, PtyHandle>()
 
 export function spawnPty(id: string, cwd: string, cols: number, rows: number): PtyHandle {
   const handle: PtyHandle = {
-    pid: -1,
     onData: () => {},
     onExit: () => {},
     write: () => {},
@@ -38,15 +31,9 @@ export function spawnPty(id: string, cwd: string, cols: number, rows: number): P
   }
 
   const ready = invoke<number>('pty_spawn', {
-    file: getShell(),
-    args: [],
     cols: Math.max(cols, 1),
     rows: Math.max(rows, 1),
-    cwd,
-    env: {}
-  }).then((pid) => {
-    handle.pid = pid
-    return pid
+    cwd
   })
 
   // Set up the read loop and exit wait once spawn completes.
@@ -77,18 +64,16 @@ export function spawnPty(id: string, cwd: string, cols: number, rows: number): P
   ready.then(async (pid) => {
     try {
       for (;;) {
-        const data = await invoke<number[]>('pty_read', { pid })
+        const data = await invoke<number[] | null>('pty_read', { pid })
+        if (data === null) return
         dataCallback?.(data)
       }
     } catch (e) {
-      if (typeof e === 'string' && e.includes('EOF')) {
-        return
-      }
       console.error('Read error:', e)
     }
   })
 
-  // Wait for exit and clean up the Rust-side session.
+  // Wait for exit and clean up.
   ready.then(async (pid) => {
     try {
       const exitCode = await invoke<number>('pty_exitstatus', { pid })
@@ -96,6 +81,7 @@ export function spawnPty(id: string, cwd: string, cols: number, rows: number): P
     } catch (e) {
       console.error('Exit status error:', e)
     }
+    ptyHandles.delete(id)
     invoke('pty_cleanup', { pid }).catch(() => {})
   })
 
@@ -117,17 +103,6 @@ export function killPty(id: string): void {
     handle.kill()
     ptyHandles.delete(id)
   }
-}
-
-export function killAllPtys(): void {
-  for (const [id, handle] of ptyHandles) {
-    handle.kill()
-    ptyHandles.delete(id)
-  }
-}
-
-export function removePtyEntry(id: string): void {
-  ptyHandles.delete(id)
 }
 
 // --- Dialog ---

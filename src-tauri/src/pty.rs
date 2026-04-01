@@ -1,6 +1,5 @@
 use std::{
-    collections::BTreeMap,
-    ffi::OsString,
+    collections::HashMap,
     io::Read,
     sync::{
         atomic::{AtomicU32, Ordering},
@@ -8,7 +7,7 @@ use std::{
     },
 };
 
-use portable_pty::{native_pty_system, CommandBuilder, PtyPair, PtySize};
+use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 use tokio::sync::{Mutex, RwLock};
 
 /// Opaque handle returned to the frontend to identify a PTY session.
@@ -20,12 +19,12 @@ const READ_BUF_SIZE: usize = 4096;
 #[derive(Default)]
 pub struct PtyState {
     next_id: AtomicU32,
-    sessions: RwLock<BTreeMap<PtyHandler, Arc<Session>>>,
+    sessions: RwLock<HashMap<PtyHandler, Arc<Session>>>,
 }
 
 struct Session {
-    /// The PTY pair (master + slave). Used for resize operations.
-    pair: Mutex<PtyPair>,
+    /// The PTY master handle, used for resize operations.
+    master: Mutex<Box<dyn MasterPty + Send>>,
     /// Cloned killer handle for terminating the child process.
     killer: Mutex<Box<dyn portable_pty::ChildKiller + Send + Sync>>,
     /// Writer end of the PTY master for sending input.
@@ -40,7 +39,7 @@ struct Session {
 }
 
 fn get_session(
-    sessions: &BTreeMap<PtyHandler, Arc<Session>>,
+    sessions: &HashMap<PtyHandler, Arc<Session>>,
     id: PtyHandler,
 ) -> Result<Arc<Session>, String> {
     sessions
@@ -51,12 +50,9 @@ fn get_session(
 
 #[tauri::command]
 pub async fn pty_spawn(
-    file: String,
-    args: Vec<String>,
     cols: u16,
     rows: u16,
     cwd: Option<String>,
-    env: BTreeMap<String, String>,
     state: tauri::State<'_, PtyState>,
 ) -> Result<PtyHandler, String> {
     let pty_system = native_pty_system();
@@ -79,13 +75,9 @@ pub async fn pty_spawn(
         .try_clone_reader()
         .map_err(|e| format!("Failed to get PTY reader: {e}"))?;
 
-    let mut cmd = CommandBuilder::new(file);
-    cmd.args(args);
+    let mut cmd = CommandBuilder::new_default_prog();
     if let Some(cwd) = cwd {
-        cmd.cwd(OsString::from(cwd));
-    }
-    for (k, v) in &env {
-        cmd.env(OsString::from(k), OsString::from(v));
+        cmd.cwd(cwd);
     }
 
     let child = pair
@@ -96,7 +88,7 @@ pub async fn pty_spawn(
     let id = state.next_id.fetch_add(1, Ordering::Relaxed);
 
     let session = Arc::new(Session {
-        pair: Mutex::new(pair),
+        master: Mutex::new(pair.master),
         killer: Mutex::new(killer),
         writer: Mutex::new(writer),
         reader: std::sync::Mutex::new(reader),
@@ -125,7 +117,7 @@ pub async fn pty_write(
 pub async fn pty_read(
     pid: PtyHandler,
     state: tauri::State<'_, PtyState>,
-) -> Result<Vec<u8>, String> {
+) -> Result<Option<Vec<u8>>, String> {
     let session = get_session(&*state.sessions.read().await, pid)?;
 
     tokio::task::spawn_blocking(move || {
@@ -138,10 +130,10 @@ pub async fn pty_read(
             .read(&mut buf)
             .map_err(|e| format!("Failed to read from PTY: {e}"))?;
         if n == 0 {
-            Err("EOF".to_string())
+            Ok(None)
         } else {
             buf.truncate(n);
-            Ok(buf)
+            Ok(Some(buf))
         }
     })
     .await
@@ -156,8 +148,8 @@ pub async fn pty_resize(
     state: tauri::State<'_, PtyState>,
 ) -> Result<(), String> {
     let session = get_session(&*state.sessions.read().await, pid)?;
-    let pair = session.pair.lock().await;
-    pair.master
+    let master = session.master.lock().await;
+    master
         .resize(PtySize {
             rows,
             cols,
@@ -191,7 +183,7 @@ pub async fn pty_exitstatus(
             .child
             .lock()
             .map_err(|e| format!("Child lock poisoned: {e}"))?;
-        let child = guard.as_mut().ok_or("Child process already consumed")?;
+        let mut child = guard.take().ok_or("Child process already consumed")?;
         let status = child
             .wait()
             .map_err(|e| format!("Failed to wait for child process: {e}"))?;

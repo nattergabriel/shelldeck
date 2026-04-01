@@ -8,8 +8,6 @@ fn store_path(app: &AppHandle, filename: &str) -> Result<PathBuf, String> {
         .path()
         .app_data_dir()
         .map_err(|e| format!("Failed to resolve app data directory: {e}"))?;
-    fs::create_dir_all(&dir)
-        .map_err(|e| format!("Failed to create app data directory: {e}"))?;
     Ok(dir.join(filename))
 }
 
@@ -22,10 +20,17 @@ fn read_json(path: &Path) -> Result<Value, String> {
     }
 }
 
+/// Write JSON atomically: write to a temp file then rename into place.
 fn write_json(path: &Path, value: &Value) -> Result<(), String> {
+    if let Some(dir) = path.parent() {
+        fs::create_dir_all(dir)
+            .map_err(|e| format!("Failed to create app data directory: {e}"))?;
+    }
     let content = serde_json::to_string_pretty(value)
         .map_err(|e| format!("Failed to serialize JSON: {e}"))?;
-    fs::write(path, content).map_err(|e| format!("Failed to write {}: {e}", path.display()))
+    let tmp = path.with_extension("tmp");
+    fs::write(&tmp, content).map_err(|e| format!("Failed to write {}: {e}", tmp.display()))?;
+    fs::rename(&tmp, path).map_err(|e| format!("Failed to rename {}: {e}", path.display()))
 }
 
 fn get_json(app: &AppHandle, filename: &str, default: Value) -> Result<Value, String> {
@@ -70,18 +75,5 @@ pub fn get_settings(app: AppHandle) -> Result<Value, String> {
 
 #[tauri::command]
 pub fn save_settings(app: AppHandle, settings: Value) -> Result<(), String> {
-    let path = store_path(&app, "settings.json")?;
-    let mut existing = match read_json(&path)? {
-        Value::Object(map) => map,
-        _ => serde_json::Map::new(),
-    };
-    match settings {
-        Value::Object(incoming) => {
-            for (k, v) in incoming {
-                existing.insert(k, v);
-            }
-        }
-        _ => return Err("Settings must be a JSON object".to_string()),
-    }
-    write_json(&path, &Value::Object(existing))
+    save_json(&app, "settings.json", &settings)
 }

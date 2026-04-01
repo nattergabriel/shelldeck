@@ -78,7 +78,7 @@ export function Workspace() {
         <SearchBar sessionId={state.activeTerminalId} onClose={() => setSearchOpen(false)} />
       )}
 
-      <div className="flex-1 relative overflow-hidden">
+      <div className="flex-1 relative overflow-clip">
         {state.sessions.map((session) => (
           <div
             key={session.id}

@@ -67,7 +67,10 @@ export function TerminalView({ sessionId, isVisible }: TerminalViewProps) {
   }, [])
 
   return (
-    <div ref={containerRef} className="h-full w-full relative bg-background pl-3 pt-2">
+    <div
+      ref={containerRef}
+      className="h-full w-full relative overflow-clip bg-background pl-3 pt-2"
+    >
       {contextMenu && (
         <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)}>
           <ContextMenuItem

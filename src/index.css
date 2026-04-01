@@ -51,6 +51,17 @@
   overflow-y: auto !important;
 }
 
+/*
+ * WKWebView fix: when the xterm helper textarea receives focus or IME events,
+ * WKWebView aggressively scrolls ancestors to bring it into view — even those
+ * with overflow:hidden (which still allows programmatic scroll offset changes).
+ * overflow:clip truly prevents any scroll offset on these containers, stopping
+ * the "jump to top" behavior during interactive CLI prompts.
+ */
+.xterm-screen {
+  overflow: clip !important;
+}
+
 /* Custom scrollbar for the sidebar */
 ::-webkit-scrollbar {
   width: 6px;

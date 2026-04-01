@@ -121,14 +121,21 @@ export function useTerminalManager(): TerminalManager {
       // Fix for macOS WKWebView: backspace and delete get routed through IME
       // composition and arrive mangled. Intercept and write directly to PTY.
       terminal.attachCustomKeyEventHandler((event) => {
-        if (event.type === 'keydown' && event.key === 'Backspace') {
+        if (event.type !== 'keydown') return true
+
+        if (event.key === 'Backspace') {
           if (event.metaKey || event.ctrlKey) return true
           writePty(sessionId, event.altKey ? '\x1b\x7f' : '\x7f')
           return false
         }
-        if (event.type === 'keydown' && event.key === 'Delete') {
+        if (event.key === 'Delete') {
           writePty(sessionId, '\x1b[3~')
           return false
+        }
+        // Fix for macOS WKWebView: arrow keys trigger native viewport scrolling.
+        // Prevent the default browser behavior but let xterm handle the key normally.
+        if (event.key.startsWith('Arrow')) {
+          event.preventDefault()
         }
         return true
       })

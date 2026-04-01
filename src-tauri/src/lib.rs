@@ -22,6 +22,29 @@ pub fn run() {
         )
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_process::init())
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let window = window.clone();
+                tauri::async_runtime::spawn(async move {
+                    use tauri_plugin_dialog::DialogExt;
+                    let confirmed = window
+                        .dialog()
+                        .message(
+                            "Are you sure you want to quit? All terminal sessions will be terminated.",
+                        )
+                        .title("Quit shelldeck")
+                        .buttons(tauri_plugin_dialog::MessageDialogButtons::OkCancelCustom(
+                            "Quit".into(),
+                            "Cancel".into(),
+                        ))
+                        .blocking_show();
+                    if confirmed {
+                        let _ = window.destroy();
+                    }
+                });
+            }
+        })
         .setup(|app| {
             #[cfg(desktop)]
             app.handle()

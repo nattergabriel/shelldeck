@@ -1,6 +1,6 @@
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder},
-    App, Emitter,
+    App, Emitter, Manager,
 };
 
 pub fn setup(app: &App) -> Result<(), Box<dyn std::error::Error>> {
@@ -17,6 +17,10 @@ pub fn setup(app: &App) -> Result<(), Box<dyn std::error::Error>> {
         .accelerator("CmdOrCtrl+0")
         .build(app)?;
 
+    let quit = MenuItemBuilder::with_id("quit", "Quit shelldeck")
+        .accelerator("CmdOrCtrl+Q")
+        .build(app)?;
+
     let app_menu = SubmenuBuilder::new(app, "shelldeck")
         .about(None)
         .separator()
@@ -28,7 +32,7 @@ pub fn setup(app: &App) -> Result<(), Box<dyn std::error::Error>> {
         .hide_others()
         .show_all()
         .separator()
-        .quit()
+        .item(&quit)
         .build()?;
 
     let edit_menu = SubmenuBuilder::new(app, "Edit")
@@ -70,6 +74,10 @@ pub fn setup(app: &App) -> Result<(), Box<dyn std::error::Error>> {
             let _ = app_handle.emit("zoom", "out");
         } else if event.id() == zoom_reset.id() {
             let _ = app_handle.emit("zoom", "reset");
+        } else if event.id() == quit.id() {
+            if let Some(window) = app_handle.get_webview_window("main") {
+                let _ = window.close();
+            }
         }
     });
 

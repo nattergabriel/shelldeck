@@ -17,6 +17,17 @@ export interface TerminalSession {
   isRunning: boolean
 }
 
+/** Layout tree for split panes. */
+export type PaneLayout =
+  | { type: 'leaf'; sessionId: string }
+  | { type: 'placeholder' }
+  | {
+      type: 'split'
+      direction: 'horizontal' | 'vertical'
+      ratio: number
+      children: [PaneLayout, PaneLayout]
+    }
+
 /** Persistent app settings. */
 export interface AppSettings {
   sidebarWidth: number

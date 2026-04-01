@@ -173,6 +173,9 @@ export function useTerminalManager(): TerminalManager {
     const { terminal, fitAddon } = entry
     if (!terminal.element) {
       terminal.open(container)
+    } else if (terminal.element.parentElement !== container) {
+      // Re-parent the terminal to a different pane container.
+      container.appendChild(terminal.element)
     }
 
     requestAnimationFrame(() => {

@@ -16,8 +16,17 @@ import {
   useMemo,
   type ReactNode
 } from 'react'
-import type { Workspace, TerminalSession } from '@/types'
+import type { Workspace, TerminalSession, PaneLayout } from '@/types'
 import { getWorkspaces, saveWorkspaces, getSessions, saveSessions, pathExists } from '@/lib/api'
+import {
+  hasPane,
+  hasPlaceholder,
+  fillPlaceholder,
+  splitPane,
+  closePane,
+  replacePane,
+  getAllSessionIds
+} from '@/lib/layout'
 import { useSettings } from '@/context/settings-context'
 import {
   isPermissionGranted,
@@ -31,6 +40,8 @@ interface TerminalState {
   workspaces: Workspace[]
   sessions: TerminalSession[]
   activeTerminalId: string | null
+  /** The split-pane layout tree. null = no terminals visible (idle screen). */
+  layout: PaneLayout | null
   /** Session IDs with unread bell notifications. Not persisted. */
   bellSessionIds: Set<string>
 }
@@ -39,6 +50,7 @@ const initialState: TerminalState = {
   workspaces: [],
   sessions: [],
   activeTerminalId: null,
+  layout: null,
   bellSessionIds: new Set()
 }
 
@@ -58,6 +70,12 @@ type Action =
   | { type: 'RENAME_WORKSPACE'; workspaceId: string; name: string }
   | { type: 'NOTIFY_BELL'; sessionId: string }
   | { type: 'CLEAR_BELL'; sessionId: string }
+  | { type: 'SET_LAYOUT'; layout: PaneLayout | null }
+  | {
+      type: 'SPLIT_PANE'
+      direction: 'horizontal' | 'vertical'
+    }
+  | { type: 'CLOSE_PANE'; sessionId: string }
 
 function reducer(state: TerminalState, action: Action): TerminalState {
   switch (action.type) {
@@ -80,38 +98,93 @@ function reducer(state: TerminalState, action: Action): TerminalState {
         .filter((s) => s.workspaceId === action.workspaceId)
         .map((s) => s.id)
       const lostActive = state.activeTerminalId && removedIds.includes(state.activeTerminalId)
+      // Remove all workspace sessions from layout.
+      let nextLayout = state.layout
+      for (const id of removedIds) {
+        if (nextLayout && hasPane(nextLayout, id)) {
+          nextLayout = closePane(nextLayout, id)
+        }
+      }
       return {
         ...state,
         workspaces: state.workspaces.filter((w) => w.id !== action.workspaceId),
         sessions: remaining,
-        activeTerminalId: lostActive ? (remaining[0]?.id ?? null) : state.activeTerminalId
+        activeTerminalId: lostActive ? (remaining[0]?.id ?? null) : state.activeTerminalId,
+        layout: nextLayout
       }
     }
 
     case 'SET_SESSIONS':
       return { ...state, sessions: action.sessions }
 
-    case 'ADD_SESSION':
+    case 'ADD_SESSION': {
+      const newLeaf: PaneLayout = { type: 'leaf', sessionId: action.session.id }
+      let nextLayout: PaneLayout
+      if (state.layout && hasPlaceholder(state.layout)) {
+        // Fill the placeholder with the new session.
+        nextLayout = fillPlaceholder(state.layout, action.session.id)
+      } else if (
+        state.layout &&
+        state.activeTerminalId &&
+        hasPane(state.layout, state.activeTerminalId)
+      ) {
+        // Replace the focused pane with the new session.
+        nextLayout = replacePane(state.layout, state.activeTerminalId, action.session.id)
+      } else {
+        nextLayout = newLeaf
+      }
       return {
         ...state,
         sessions: [...state.sessions, action.session],
-        activeTerminalId: action.session.id
+        activeTerminalId: action.session.id,
+        layout: nextLayout
       }
+    }
 
     case 'REMOVE_SESSION': {
       const remaining = state.sessions.filter((s) => s.id !== action.sessionId)
       let nextActive = state.activeTerminalId
-      if (state.activeTerminalId === action.sessionId) {
-        // Switch to a sibling session, preferring the one before the removed one.
-        const removedIndex = state.sessions.findIndex((s) => s.id === action.sessionId)
-        const sibling = remaining[Math.min(removedIndex, remaining.length - 1)]
-        nextActive = sibling?.id ?? null
+      let nextLayout = state.layout
+      // Remove from layout if present.
+      if (nextLayout && hasPane(nextLayout, action.sessionId)) {
+        nextLayout = closePane(nextLayout, action.sessionId)
       }
-      return { ...state, sessions: remaining, activeTerminalId: nextActive }
+      if (state.activeTerminalId === action.sessionId) {
+        // Pick the next focus from remaining layout leaves, or fall back to sibling in list.
+        const layoutIds = nextLayout ? getAllSessionIds(nextLayout) : []
+        if (layoutIds.length > 0) {
+          nextActive = layoutIds[0]
+        } else {
+          const removedIndex = state.sessions.findIndex((s) => s.id === action.sessionId)
+          const sibling = remaining[Math.min(removedIndex, remaining.length - 1)]
+          nextActive = sibling?.id ?? null
+          // Show the fallback terminal in the layout.
+          if (nextActive) {
+            nextLayout = { type: 'leaf', sessionId: nextActive }
+          }
+        }
+      }
+      return { ...state, sessions: remaining, activeTerminalId: nextActive, layout: nextLayout }
     }
 
-    case 'SET_ACTIVE_TERMINAL':
-      return { ...state, activeTerminalId: action.sessionId }
+    case 'SET_ACTIVE_TERMINAL': {
+      if (!action.sessionId) return { ...state, activeTerminalId: null, layout: null }
+      // If the session is already in the layout, just focus it.
+      if (state.layout && hasPane(state.layout, action.sessionId)) {
+        return { ...state, activeTerminalId: action.sessionId }
+      }
+      // If there's a placeholder, fill it with this session.
+      if (state.layout && hasPlaceholder(state.layout)) {
+        const nextLayout = fillPlaceholder(state.layout, action.sessionId)
+        return { ...state, activeTerminalId: action.sessionId, layout: nextLayout }
+      }
+      // Otherwise, swap it into the focused pane (or show solo).
+      let nextLayout: PaneLayout = { type: 'leaf', sessionId: action.sessionId }
+      if (state.layout && state.activeTerminalId && hasPane(state.layout, state.activeTerminalId)) {
+        nextLayout = replacePane(state.layout, state.activeTerminalId, action.sessionId)
+      }
+      return { ...state, activeTerminalId: action.sessionId, layout: nextLayout }
+    }
 
     case 'SET_SESSION_RUNNING':
       return {
@@ -152,6 +225,26 @@ function reducer(state: TerminalState, action: Action): TerminalState {
       return { ...state, bellSessionIds: next }
     }
 
+    case 'SET_LAYOUT':
+      return { ...state, layout: action.layout }
+
+    case 'SPLIT_PANE': {
+      if (!state.layout || !state.activeTerminalId) return state
+      const newLayout = splitPane(state.layout, state.activeTerminalId, action.direction)
+      return { ...state, layout: newLayout }
+    }
+
+    case 'CLOSE_PANE': {
+      if (!state.layout) return state
+      const newLayout = closePane(state.layout, action.sessionId)
+      let nextActive = state.activeTerminalId
+      if (state.activeTerminalId === action.sessionId) {
+        const remaining = newLayout ? getAllSessionIds(newLayout) : []
+        nextActive = remaining[0] ?? null
+      }
+      return { ...state, layout: newLayout, activeTerminalId: nextActive }
+    }
+
     default: {
       const _exhaustive: never = action
       return _exhaustive
@@ -174,6 +267,9 @@ interface TerminalContextValue {
   renameWorkspace: (workspaceId: string, name: string) => void
   reviveSession: (sessionId: string) => void
   notifyBell: (sessionId: string) => void
+  splitFocusedPane: (direction: 'horizontal' | 'vertical') => void
+  closePane: (sessionId: string) => void
+  setLayout: (layout: PaneLayout | null) => void
 }
 
 const TerminalContext = createContext<TerminalContextValue | null>(null)
@@ -313,6 +409,18 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
     [settings.bellNotificationsEnabled]
   )
 
+  const splitFocusedPane = useCallback((direction: 'horizontal' | 'vertical') => {
+    dispatch({ type: 'SPLIT_PANE', direction })
+  }, [])
+
+  const closePaneAction = useCallback((sessionId: string) => {
+    dispatch({ type: 'CLOSE_PANE', sessionId })
+  }, [])
+
+  const setLayout = useCallback((layout: PaneLayout | null) => {
+    dispatch({ type: 'SET_LAYOUT', layout })
+  }, [])
+
   const value = useMemo(
     () => ({
       state,
@@ -326,7 +434,10 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
       renameSession,
       renameWorkspace,
       reviveSession,
-      notifyBell
+      notifyBell,
+      splitFocusedPane,
+      closePane: closePaneAction,
+      setLayout
     }),
     [
       state,
@@ -340,7 +451,10 @@ export function TerminalProvider({ children }: { children: ReactNode }) {
       renameSession,
       renameWorkspace,
       reviveSession,
-      notifyBell
+      notifyBell,
+      splitFocusedPane,
+      closePaneAction,
+      setLayout
     ]
   )
 

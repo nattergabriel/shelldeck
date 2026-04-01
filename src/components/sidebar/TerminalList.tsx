@@ -4,9 +4,11 @@
  * Double-clicking the name enters inline rename mode.
  */
 
+import { useMemo } from 'react'
 import { useTerminalContext } from '@/context/terminal-context'
 import { useTerminalManager } from '@/context/terminal-manager'
 import { useInlineRename } from '@/hooks/use-inline-rename'
+import { getAllSessionIds } from '@/lib/layout'
 import type { TerminalSession } from '@/types'
 import { cn } from '@/lib/utils'
 import { X } from 'lucide-react'
@@ -20,6 +22,10 @@ export function TerminalList({ sessions }: TerminalListProps) {
   const { state, setActiveTerminal, removeSession, renameSession } = useTerminalContext()
   const terminalManager = useTerminalManager()
   const rename = useInlineRename(renameSession)
+  const layoutSessionIds = useMemo(
+    () => (state.layout ? new Set(getAllSessionIds(state.layout)) : new Set<string>()),
+    [state.layout]
+  )
 
   if (sessions.length === 0) return null
 
@@ -32,7 +38,8 @@ export function TerminalList({ sessions }: TerminalListProps) {
   return (
     <div className="space-y-0.5 mt-0.5 mb-1">
       {sessions.map((session) => {
-        const isActive = state.activeTerminalId === session.id
+        const isFocused = state.activeTerminalId === session.id
+        const isInLayout = !isFocused && layoutSessionIds.has(session.id)
         const isEditing = rename.editingId === session.id
         const hasBell = state.bellSessionIds.has(session.id)
 
@@ -41,9 +48,11 @@ export function TerminalList({ sessions }: TerminalListProps) {
             key={session.id}
             className={cn(
               'flex items-center justify-between pl-8 pr-2 py-1.5 rounded-md cursor-pointer group text-sm font-medium transition-colors',
-              isActive
+              isFocused
                 ? 'bg-accent text-foreground'
-                : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
+                : isInLayout
+                  ? 'bg-accent/40 text-foreground'
+                  : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
             )}
             onMouseDown={(e) => {
               if (!(e.target as HTMLElement).closest('button, input')) e.preventDefault()

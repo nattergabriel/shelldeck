@@ -16,9 +16,10 @@ import '@xterm/xterm/css/xterm.css'
 interface TerminalViewProps {
   sessionId: string
   isVisible: boolean
+  isFocused?: boolean
 }
 
-export function TerminalView({ sessionId, isVisible }: TerminalViewProps) {
+export function TerminalView({ sessionId, isVisible, isFocused }: TerminalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const terminalManager = useTerminalManager()
 
@@ -41,6 +42,12 @@ export function TerminalView({ sessionId, isVisible }: TerminalViewProps) {
     }, 50)
     return () => clearTimeout(timeout)
   }, [isVisible, sessionId])
+
+  // Focus xterm when this pane becomes the focused pane in a split layout.
+  useEffect(() => {
+    if (!isFocused) return
+    managerRef.current.focusTerminal(sessionId)
+  }, [isFocused, sessionId])
 
   // Refit when the container size changes (window resize, sidebar drag, etc.).
   useEffect(() => {

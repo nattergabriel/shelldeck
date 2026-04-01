@@ -4,7 +4,10 @@
  * Shortcuts (Cmd on macOS, Ctrl on other platforms):
  *   Mod+T          — New terminal in active/first workspace (or quick terminal if none)
  *   Mod+Shift+T    — New quick terminal
- *   Mod+W          — Kill active terminal
+ *   Mod+W          — Kill active terminal (closes pane if in split)
+ *   Mod+D          — Split focused pane right
+ *   Mod+Shift+D    — Split focused pane down
+ *   Mod+Option+←/→/↑/↓ — Navigate between panes
  *   Mod+Shift+[    — Switch to previous terminal
  *   Mod+Shift+]    — Switch to next terminal
  *   Mod+1-9        — Switch to terminal by index
@@ -13,10 +16,12 @@
 import { useEffect } from 'react'
 import { useTerminalContext } from '@/context/terminal-context'
 import { useTerminalManager } from '@/context/terminal-manager'
+import { findAdjacentPane } from '@/lib/layout'
 import { getHomeDir } from '@/lib/api'
 
 export function useKeyboardShortcuts() {
-  const { state, createSession, removeSession, setActiveTerminal } = useTerminalContext()
+  const { state, createSession, removeSession, setActiveTerminal, splitFocusedPane } =
+    useTerminalContext()
   const terminalManager = useTerminalManager()
 
   useEffect(() => {
@@ -55,12 +60,41 @@ export function useKeyboardShortcuts() {
         return
       }
 
+      // Cmd+Shift+D — split focused pane down (check before Cmd+D).
+      if (e.key.toLowerCase() === 'd' && e.shiftKey) {
+        e.preventDefault()
+        if (!state.activeTerminalId) return
+        splitFocusedPane('vertical')
+        return
+      }
+
+      // Cmd+D — split focused pane right.
+      if (e.key.toLowerCase() === 'd' && !e.shiftKey) {
+        e.preventDefault()
+        if (!state.activeTerminalId) return
+        splitFocusedPane('horizontal')
+        return
+      }
+
       // Cmd+W — kill active terminal.
       if (e.key === 'w' && !e.shiftKey) {
         e.preventDefault()
         if (!state.activeTerminalId) return
         terminalManager.destroyTerminal(state.activeTerminalId)
         removeSession(state.activeTerminalId)
+        return
+      }
+
+      // Cmd+Option+Arrow — navigate between panes.
+      if (e.altKey && e.key.startsWith('Arrow') && state.layout && state.activeTerminalId) {
+        e.preventDefault()
+        const direction = e.key.replace('Arrow', '').toLowerCase() as
+          | 'left'
+          | 'right'
+          | 'up'
+          | 'down'
+        const target = findAdjacentPane(state.layout, state.activeTerminalId, direction)
+        if (target) setActiveTerminal(target)
         return
       }
 
@@ -99,9 +133,11 @@ export function useKeyboardShortcuts() {
     state.sessions,
     state.activeTerminalId,
     state.workspaces,
+    state.layout,
     createSession,
     removeSession,
     setActiveTerminal,
+    splitFocusedPane,
     terminalManager
   ])
 }
